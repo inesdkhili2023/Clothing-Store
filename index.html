@@ -3,243 +3,916 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Elyna — Boutique</title>
+<title>Elyna – Boutique</title>
 
 <!-- Fonts & icons -->
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
 
-<!-- Styles -->
-<link rel="stylesheet" href="styles.css">
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
 
-<!-- Supabase lib (used by app.js) -->
+<!-- Supabase lib -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          beige: {
+            light: '#F5F5DC',
+            DEFAULT: '#E6E6D2',
+            dark: '#D2D2B4',
+          },
+          accent: {
+            DEFAULT: '#A67C52',
+            dark: '#8C6A46',
+          },
+          primary: '#8B7D6B',
+          secondary: '#D4C8B9',
+          light: '#F5F1EB',
+          dark: '#4A4238',
+        }
+      }
+    }
+  }
+</script>
+
+<style>
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Arial", sans-serif;
+  }
+  
+  .font-serif {
+    font-family: 'Playfair Display', serif;
+  }
+  
+  .announcement-bar {
+    background: linear-gradient(135deg, #A67C52, #8C6A46);
+    color: white;
+    padding: 8px 0;
+    text-align: center;
+    font-size: 14px;
+  }
+  
+  .hero-section {
+    background-image: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)), url('https://images.unsplash.com/photo-1556911220-e15b29be8c8f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80');
+    background-size: cover;
+    background-position: center;
+  }
+  
+  .product-card {
+    transition: all 0.3s ease;
+  }
+  
+  .product-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+  }
+  
+  .product-card:hover .product-overlay {
+    opacity: 1;
+  }
+  
+  .product-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  
+  .quick-view-btn {
+    background: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  
+  .quick-view-btn:hover {
+    background: #A67C52;
+    color: white;
+  }
+  
+  .product-image-container {
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+  }
+  
+  .product-image {
+    width: 100%;
+    height: 280px;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+  }
+  
+  .product-card:hover .product-image {
+    transform: scale(1.05);
+  }
+  
+  .btn-add-cart {
+    background: #A67C52;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-right: 8px;
+  }
+  
+  .btn-add-cart:hover {
+    background: #8C6A46;
+  }
+  
+  .btn-add-cart:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+  }
+  
+  .btn-wishlist {
+    background: #f3f4f6;
+    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+  }
+  
+  .btn-wishlist:hover {
+    background: #ef4444;
+    color: white;
+  }
+  
+  .dropdown:hover .dropdown-menu {
+    display: block;
+  }
+  
+  .modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .modal.active {
+    display: flex;
+  }
+  
+  .modal-content {
+    background: white;
+    padding: 2rem;
+    border-radius: 16px;
+    max-width: 90vw;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: modalFadeIn 0.3s ease-out;
+    position: relative;
+  }
+  
+  @keyframes modalFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .categories-panel {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: white;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    min-width: 200px;
+    z-index: 100;
+    padding: 8px 0;
+  }
+  
+  .categories-panel .cat {
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+  
+  .categories-panel .cat:hover {
+    background: #f3f4f6;
+  }
+  
+  .categories-panel .sub {
+    padding: 4px 8px;
+    margin: 2px 0;
+    background: #f8f9fa;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  
+  .categories-panel .sub:hover {
+    background: #e9ecef;
+  }
+  
+  .hidden {
+    display: none !important;
+  }
+  
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  
+  .form-group.full-width {
+    grid-column: span 2;
+  }
+  
+  .detail-main img {
+    width: 100%;
+    height: 400px;
+    object-fit: cover;
+    border-radius: 8px;
+  }
+  
+  .detail-thumbs {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  
+  .detail-thumbs img {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border 0.2s ease;
+  }
+  
+  .detail-thumbs img.active,
+  .detail-thumbs img:hover {
+    border-color: #A67C52;
+  }
+  
+  .qty-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 16px 0;
+  }
+  
+  .qty-btn {
+    background: #f3f4f6;
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease;
+  }
+  
+  .qty-btn:hover {
+    background: #e5e7eb;
+  }
+  
+  #detail-qty {
+    font-weight: 600;
+    min-width: 24px;
+    text-align: center;
+  }
+  
+  .price {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #A67C52;
+    margin: 8px 0;
+  }
+  
+  @media (max-width: 768px) {
+    .form-grid {
+      grid-template-columns: 1fr;
+    }
+    .form-group.full-width {
+      grid-column: span 1;
+    }
+    
+    .product-image {
+      height: 200px;
+    }
+    
+    .detail-main img {
+      height: 250px;
+    }
+  }
+</style>
 </head>
-<!-- ===================== SECTION ADMIN ===================== -->
-<section id="admin-section" class="hidden container" style="margin-top:40px; margin-bottom:40px;">
-  <h2 style="margin-bottom:20px"><i class="fas fa-tools"></i> Tableau de bord Administrateur</h2>
 
-  <!-- Stats Cards -->
-  <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:18px; margin-bottom:30px;">
-    <div style="background:var(--card); padding:20px; border-radius:var(--radius); text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.05)">
-      <h3 id="total-orders">0</h3>
-      <p style="color:var(--muted)">Commandes totales</p>
-    </div>
-    <div style="background:var(--card); padding:20px; border-radius:var(--radius); text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.05)">
-      <h3 id="total-revenue">0 DT</h3>
-      <p style="color:var(--muted)">Revenus totaux</p>
-    </div>
-    <div style="background:var(--card); padding:20px; border-radius:var(--radius); text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.05)">
-      <h3 id="total-products">0</h3>
-      <p style="color:var(--muted)">Produits</p>
-    </div>
-    <div style="background:var(--card); padding:20px; border-radius:var(--radius); text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.05)">
-      <h3 id="pending-orders">0</h3>
-      <p style="color:var(--muted)">En attente</p>
-    </div>
-  </div>
+<body class="bg-beige-light">
 
-  <!-- Bouton Ajouter Produit -->
-  <div style="margin-bottom:20px; text-align:right;">
-    <button class="btn-primary" onclick="showAddProduct()">
-      <i class="fas fa-plus"></i> Ajouter un produit
-    </button>
-  </div>
-
-  <!-- Tableau des commandes -->
-  <h3 style="margin-top:30px; margin-bottom:10px;">Commandes</h3>
-  <div id="orders-table" style="background:var(--card); padding:20px; border-radius:var(--radius); box-shadow:0 4px 12px rgba(0,0,0,0.05)">
-    <!-- Injecté par JS -->
-  </div>
-
-  <!-- Tableau des produits -->
-  <h3 style="margin-top:40px; margin-bottom:10px;">Produits</h3>
-  <div id="admin-products-table" style="background:var(--card); padding:20px; border-radius:var(--radius); box-shadow:0 4px 12px rgba(0,0,0,0.05)">
-    <!-- Injecté par JS -->
-  </div>
-</section>
-
-<body>
-
-  <!-- Announcement -->
+  <!-- Announcement Bar -->
   <div class="announcement-bar">
-    <div class="container"><i class="fas fa-truck"></i> Livraison gratuite partout en Tunisie pour toute commande supérieure à 300 DT</div>
+    <div class="max-w-6xl mx-auto px-4">
+      <i class="fas fa-truck mr-2"></i> 
+      Livraison gratuite partout en Tunisie pour toute commande supérieure à 300 DT
+    </div>
   </div>
 
   <!-- Header -->
-  <header class="header">
-    <div class="inner container">
-      <a class="logo" href="#" onclick="showHome()"><img src="assets/logo.png" alt="ELYNA" style="height:44px"></a>
-
-      <nav class="main-nav">
-        <div class="nav-left">
-          <div class="categories-dropdown" id="categories-dropdown">
-            <button class="categories-btn"><i class="fas fa-bars"></i> Catégories <i class="fas fa-chevron-down"></i></button>
-            <div class="categories-panel hidden" id="categories-panel"></div>
-          </div>
-          <a href="#" onclick="showHome()">Accueil</a>
-          <a href="#" onclick="showProducts()">Collection</a>
-          <a href="#">Nouveautés</a>
-          <a href="#">Lookbook</a>
+  <header class="bg-white shadow-md sticky top-0 z-40">
+    <div class="max-w-6xl mx-auto px-4 py-3">
+      <div class="flex justify-between items-center">
+        <!-- Logo -->
+        <div class="flex items-center">
+          <a class="text-2xl font-serif font-bold text-accent" href="#" onclick="showHome()">
+            ELYNA
+          </a>
         </div>
 
-        <div class="nav-right">
-          <div class="search-wrap">
-            <input id="search-input" placeholder="Rechercher un produit..." />
-            <button onclick="applySearch()"><i class="fas fa-search"></i></button>
+        <!-- Desktop Navigation -->
+        <nav class="hidden md:flex items-center space-x-8">
+          <div class="dropdown relative">
+            <button class="hover:text-accent transition flex items-center" id="categories-dropdown">
+              <i class="fas fa-bars mr-2"></i> Catégories 
+              <i class="fas fa-chevron-down ml-1 text-xs"></i>
+            </button>
+            <div class="categories-panel hidden" id="categories-panel">
+              <!-- Will be populated by JS -->
+            </div>
           </div>
+          <a href="#" onclick="showHome()" class="hover:text-accent transition">Accueil</a>
+          <a href="#" onclick="showProducts()" class="hover:text-accent transition">Collection</a>
+          <a href="#" class="hover:text-accent transition">Nouveautés</a>
+          <a href="#" class="hover:text-accent transition">Lookbook</a>
+        </nav>
 
-          <button class="action-btn" onclick="showCart()">
+        <!-- Search & Actions -->
+        <div class="flex items-center space-x-4">
+          <div class="hidden md:flex items-center">
+            <input type="text" id="search-input" placeholder="Rechercher..." 
+                   class="px-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent w-48">
+            <button onclick="applySearch()" class="ml-2 hover:text-accent">
+              <i class="fas fa-search"></i>
+            </button>
+          </div>
+          
+          <button onclick="showCart()" class="hover:text-accent relative">
             <i class="fas fa-shopping-bag"></i>
-            <span class="cart-count" id="cart-count">0</span>
+            <span class="absolute -top-2 -right-2 bg-accent text-white text-xs rounded-full h-5 w-5 flex items-center justify-center" id="cart-count">0</span>
           </button>
-
-          <button class="action-btn" onclick="showAdminLogin()"><i class="fas fa-user-cog"></i></button>
+          
+          <button onclick="showAdminLogin()" class="hover:text-accent">
+            <i class="fas fa-user-cog"></i>
+          </button>
         </div>
-      </nav>
+      </div>
     </div>
   </header>
 
-  <!-- Hero -->
-  <section class="hero">
-    <div class="container hero-inner">
-      <div class="hero-left">
-        <h1>Collection Automne — Élégance tunisienne</h1>
-        <p>Pièces limitées — confection soignée. Livraison rapide en Tunisie.</p>
-        <div class="hero-ctas">
-          <button class="btn-primary" onclick="showProducts()">Voir la collection</button>
-          <a class="hero-link" href="#products-section">Bestsellers</a>
+  <!-- Admin Section -->
+  <section id="admin-section" class="hidden max-w-6xl mx-auto px-4 py-8">
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-serif font-bold text-accent">
+          <i class="fas fa-tools mr-2"></i> Tableau de bord Administrateur
+        </h2>
+        <button onclick="showHome()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-full font-medium transition">
+          <i class="fas fa-arrow-left mr-2"></i> Retour au site
+        </button>
+      </div>
+
+      <!-- Stats Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="bg-beige rounded-lg p-6 text-center">
+          <h3 class="text-2xl font-bold text-accent" id="total-orders">0</h3>
+          <p class="text-gray-600">Commandes totales</p>
+        </div>
+        <div class="bg-beige rounded-lg p-6 text-center">
+          <h3 class="text-2xl font-bold text-accent" id="total-revenue">0 DT</h3>
+          <p class="text-gray-600">Revenus totaux</p>
+        </div>
+        <div class="bg-beige rounded-lg p-6 text-center">
+          <h3 class="text-2xl font-bold text-accent" id="total-products">0</h3>
+          <p class="text-gray-600">Produits</p>
+        </div>
+        <div class="bg-beige rounded-lg p-6 text-center">
+          <h3 class="text-2xl font-bold text-accent" id="pending-orders">0</h3>
+          <p class="text-gray-600">En attente</p>
         </div>
       </div>
-      <div class="hero-right">
-        <img src="assets/logo.png" alt="visuel" />
+
+      <!-- Add Product Button -->
+      <div class="text-right mb-6">
+        <button class="bg-accent hover:bg-accent-dark text-white px-6 py-3 rounded-full font-medium transition" onclick="showAddProduct()">
+          <i class="fas fa-plus mr-2"></i> Ajouter un produit
+        </button>
+      </div>
+
+      <!-- Orders Table -->
+      <div class="mb-8">
+        <h3 class="text-lg font-semibold mb-4">Commandes récentes</h3>
+        <div id="orders-table" class="bg-beige-light rounded-lg p-4">
+          <!-- Injected by JS -->
+        </div>
+      </div>
+
+      <!-- Products Table -->
+      <div>
+        <h3 class="text-lg font-semibold mb-4">Gestion des produits</h3>
+        <div id="admin-products-table" class="bg-beige-light rounded-lg p-4">
+          <!-- Injected by JS -->
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- Filters bar -->
-  <section class="filters container">
-    <div class="filters-row">
-      <div class="filter-group">
-        <label>Catégorie</label>
-        <select id="filter-category" onchange="onCategoryChange()">
-          <option value="">Toutes</option>
-        </select>
+  <!-- Hero Section -->
+  <section class="hero-section text-white h-96 flex items-center">
+    <div class="max-w-6xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+      <div>
+        <h1 class="text-4xl md:text-5xl font-serif font-bold mb-4">
+          Collection Automne – Élégance tunisienne
+        </h1>
+        <p class="text-xl mb-8">
+          Pièces limitées – confection soignée. Livraison rapide en Tunisie.
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4">
+          <button class="bg-accent hover:bg-accent-dark text-white px-8 py-3 rounded-full font-medium transition" onclick="showProducts()">
+            Voir la collection
+          </button>
+          <a class="text-white hover:text-beige underline self-center" href="#products-section">
+            Bestsellers
+          </a>
+        </div>
       </div>
-
-      <div class="filter-group">
-        <label>Sous-catégorie</label>
-        <select id="filter-subcategory" onchange="applyFilters()">
-          <option value="">Toutes</option>
-        </select>
-      </div>
-
-      <div class="filter-group">
-        <label>Tri</label>
-        <select id="filter-sort" onchange="applyFilters()">
-          <option value="new">Nouveautés</option>
-          <option value="price_asc">Prix croissant</option>
-          <option value="price_desc">Prix décroissant</option>
-        </select>
-      </div>
-
-      <div class="filter-actions">
-        <button onclick="resetFilters()">Réinitialiser</button>
+      <div class="hidden md:block">
+        <img src="https://images.unsplash.com/photo-1445205170230-053b83016050?ixlib=rb-4.0.3" alt="Fashion" class="rounded-lg shadow-lg">
       </div>
     </div>
   </section>
 
-  <!-- Products -->
-  <main class="container">
-    <section id="products-section" class="products-section">
-      <div class="section-header">
-        <h2>Notre Collection</h2>
-        <p id="results-info">Tous les produits</p>
+  <!-- Filters -->
+  <section class="bg-white border-b">
+    <div class="max-w-6xl mx-auto px-4 py-6">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <div>
+          <label class="block text-gray-700 mb-2">Catégorie</label>
+          <select id="filter-category" onchange="onCategoryChange()" 
+                  class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+            <option value="">Toutes</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-gray-700 mb-2">Sous-catégorie</label>
+          <select id="filter-subcategory" onchange="applyFilters()" 
+                  class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+            <option value="">Toutes</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-gray-700 mb-2">Tri</label>
+          <select id="filter-sort" onchange="applyFilters()" 
+                  class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+            <option value="new">Nouveautés</option>
+            <option value="price_asc">Prix croissant</option>
+            <option value="price_desc">Prix décroissant</option>
+          </select>
+        </div>
+
+        <div>
+          <button onclick="resetFilters()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded font-medium transition w-full">
+            Réinitialiser
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Products Section -->
+  <main class="max-w-6xl mx-auto px-4 py-8">
+    <section id="products-section">
+      <div class="text-center mb-8">
+        <h2 class="text-3xl font-serif font-bold text-accent mb-4">Notre Collection</h2>
+        <p id="results-info" class="text-gray-600">Tous les produits</p>
       </div>
 
-      <div id="products-grid" class="products-grid">
-        <!-- Injected by app.js -->
+      <div id="products-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <!-- Products injected by app.js -->
       </div>
     </section>
   </main>
 
   <!-- Footer -->
-  <footer class="footer">
-    <div class="container">© Elyna — Tous droits réservés</div>
+  <footer class="bg-dark text-white py-8">
+    <div class="max-w-6xl mx-auto px-4 text-center">
+      <p>&copy; Elyna – Tous droits réservés</p>
+    </div>
   </footer>
 
-  <!-- ----------------- MODALS ----------------- -->
+  <!-- MODALS -->
 
-  <!-- Product Detail (Quick View) -->
+  <!-- Product Detail Modal -->
   <div id="product-detail-modal" class="modal">
-    <div class="modal-content max-wide">
-      <button class="close-btn" onclick="closeModal('product-detail-modal')">&times;</button>
-      <div class="detail-grid">
-        <div class="detail-gallery" id="detail-gallery"></div>
-        <div class="detail-info" id="detail-info"></div>
+    <div class="modal-content max-w-4xl">
+      <button class="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-2xl z-10" onclick="closeModal('product-detail-modal')">&times;</button>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="detail-grid">
+        <div id="detail-gallery"></div>
+        <div id="detail-info"></div>
       </div>
     </div>
   </div>
 
   <!-- Cart Modal -->
   <div id="cart-modal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2 class="modal-title"><i class="fas fa-shopping-bag"></i> Mon Panier</h2>
-        <button class="close-btn" onclick="closeModal('cart-modal')">&times;</button>
+    <div class="modal-content max-w-md">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-xl font-serif font-bold text-accent">
+          <i class="fas fa-shopping-bag mr-2"></i> Mon Panier
+        </h2>
+        <button class="text-gray-500 hover:text-gray-700 text-2xl" onclick="closeModal('cart-modal')">&times;</button>
       </div>
-      <div id="cart-items"></div>
-      <div id="cart-total" class="cart-total"></div>
-      <button class="btn-primary" style="width: 100%" onclick="proceedToCheckout()">Finaliser la commande</button>
+      <div id="cart-items" class="mb-6"></div>
+      <div id="cart-total" class="border-t pt-4 mb-6"></div>
+      <button class="bg-accent hover:bg-accent-dark text-white w-full py-3 rounded font-medium transition" onclick="proceedToCheckout()">
+        Finaliser la commande
+      </button>
     </div>
   </div>
 
   <!-- Admin Login Modal -->
   <div id="admin-modal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2 class="modal-title"><i class="fas fa-user-shield"></i> Connexion Administrateur</h2>
-        <button class="close-btn" onclick="closeModal('admin-modal')">&times;</button>
+    <div class="modal-content max-w-md">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-xl font-serif font-bold text-accent">
+          <i class="fas fa-user-shield mr-2"></i> Connexion Administrateur
+        </h2>
+        <button class="text-gray-500 hover:text-gray-700 text-2xl" onclick="closeModal('admin-modal')">&times;</button>
       </div>
       <form id="admin-login-form">
-        <div class="form-group">
-          <label>Email</label>
-          <input type="email" id="admin-email" required placeholder="admin@elyna.tn">
+        <div class="mb-4">
+          <label class="block text-gray-700 mb-2">Email</label>
+          <input type="email" id="admin-email" required placeholder="admin@elyna.tn" 
+                 class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
         </div>
-        <div class="form-group">
-          <label>Mot de passe</label>
-          <input type="password" id="admin-password" required placeholder="••••••••">
+        <div class="mb-6">
+          <label class="block text-gray-700 mb-2">Mot de passe</label>
+          <input type="password" id="admin-password" required placeholder="••••••••" 
+                 class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
         </div>
-        <button type="submit" class="btn-primary" style="width:100%"><i class="fas fa-sign-in-alt"></i> Se connecter</button>
-        <div id="admin-error" class="alert alert-error hidden"></div>
+        <button type="submit" class="bg-accent hover:bg-accent-dark text-white w-full py-3 rounded font-medium transition">
+          <i class="fas fa-sign-in-alt mr-2"></i> Se connecter
+        </button>
+        <div id="admin-error" class="hidden bg-red-100 text-red-800 p-3 rounded mt-4"></div>
+        <div class="mt-4 text-sm text-gray-600 text-center">
+          <em>Mode démo: utilisez n'importe quel email/mot de passe</em>
+        </div>
       </form>
     </div>
   </div>
 
-  <!-- Add Product Modal (admin) -->
+  <!-- Add/Edit Product Modal -->
   <div id="product-modal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2 class="modal-title"><i class="fas fa-plus"></i> Ajouter un Produit</h2>
-        <button class="close-btn" onclick="closeModal('product-modal')">&times;</button>
+    <div class="modal-content max-w-2xl">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-xl font-serif font-bold text-accent">
+          <i class="fas fa-plus mr-2"></i> Ajouter un Produit
+        </h2>
+        <button class="text-gray-500 hover:text-gray-700 text-2xl" onclick="resetProductForm(); closeModal('product-modal')">&times;</button>
       </div>
       <form id="add-product-form">
         <div class="form-grid">
           <div class="form-group">
-            <label>Nom du produit</label>
-            <input type="text" id="product-name" required>
+            <label class="block text-gray-700 mb-2">Prénom *</label>
+            <input id="customer-firstname" required 
+                   class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
           </div>
           <div class="form-group">
-            <label>Prix (DT)</label>
-            <input type="number" id="product-price" required step="0.01">
+            <label class="block text-gray-700 mb-2">Nom *</label>
+            <input id="customer-lastname" required 
+                   class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+          </div>
+          <div class="form-group">
+            <label class="block text-gray-700 mb-2">Email *</label>
+            <input id="customer-email" type="email" required 
+                   class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+          </div>
+          <div class="form-group">
+            <label class="block text-gray-700 mb-2">Téléphone *</label>
+            <input id="customer-phone" required placeholder="20123456" 
+                   class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
           </div>
           <div class="form-group full-width">
-            <label>Description</label>
-            <textarea id="product-description" required></textarea>
+            <label class="block text-gray-700 mb-2">Adresse *</label>
+            <textarea id="customer-address" required rows="2"
+                      class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent"></textarea>
           </div>
           <div class="form-group">
-            <label>Catégorie</label>
-            <select id="product-category" required>
+            <label class="block text-gray-700 mb-2">Gouvernorat *</label>
+            <select id="customer-governorate" required 
+                    class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+              <option value="">Choisir</option>
+              <option value="tunis">Tunis</option>
+              <option value="ariana">Ariana</option>
+              <option value="ben_arous">Ben Arous</option>
+              <option value="manouba">Manouba</option>
+              <option value="sfax">Sfax</option>
+              <option value="sousse">Sousse</option>
+              <option value="monastir">Monastir</option>
+              <option value="mahdia">Mahdia</option>
+              <option value="kairouan">Kairouan</option>
+              <option value="kasserine">Kasserine</option>
+              <option value="sidi_bouzid">Sidi Bouzid</option>
+              <option value="gafsa">Gafsa</option>
+              <option value="tozeur">Tozeur</option>
+              <option value="kebili">Kébili</option>
+              <option value="gabes">Gabès</option>
+              <option value="medenine">Médenine</option>
+              <option value="tataouine">Tataouine</option>
+              <option value="nabeul">Nabeul</option>
+              <option value="zaghouan">Zaghouan</option>
+              <option value="bizerte">Bizerte</option>
+              <option value="beja">Béja</option>
+              <option value="jendouba">Jendouba</option>
+              <option value="kef">Le Kef</option>
+              <option value="siliana">Siliana</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="block text-gray-700 mb-2">Mode de paiement *</label>
+            <select id="payment-method" required 
+                    class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+              <option value="">Choisir</option>
+              <option value="cash_on_delivery">Paiement à la livraison</option>
+              <option value="bank_transfer">Virement bancaire</option>
+              <option value="online_payment">Paiement en ligne</option>
+            </select>
+          </div>
+          <div class="form-group full-width">
+            <label class="block text-gray-700 mb-2">Notes (optionnel)</label>
+            <textarea id="order-notes" rows="2" placeholder="Instructions spéciales pour la livraison..."
+                      class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent"></textarea>
+          </div>
+        </div>
+
+        <div class="bg-beige-light p-4 rounded-lg my-6">
+          <h4 class="font-semibold mb-2 text-accent">Récapitulatif de la commande</h4>
+          <div id="checkout-summary"></div>
+        </div>
+
+        <button type="submit" class="bg-accent hover:bg-accent-dark text-white w-full py-3 rounded font-medium transition">
+          <i class="fas fa-credit-card mr-2"></i> Confirmer la commande
+        </button>
+        <div id="checkout-error" class="hidden bg-red-100 text-red-800 p-3 rounded mt-4"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- App script -->
+  <script src="app.js"></script>
+
+  <!-- UI behaviors -->
+  <script>
+    // Categories dropdown toggle
+    document.addEventListener('click', function(e){
+      const panel = document.getElementById('categories-panel');
+      const btn = document.querySelector('#categories-dropdown');
+      if (!btn) return;
+      if (btn.contains(e.target)) {
+        panel.classList.toggle('hidden');
+      } else if (!panel.contains(e.target)) {
+        panel.classList.add('hidden');
+      }
+    });
+
+    // Search enter
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+      searchInput.addEventListener('keydown', (e) => { 
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          applySearch(); 
+        }
+      });
+    }
+
+    // Mobile search toggle (for future implementation)
+    function toggleMobileSearch() {
+      const mobileSearch = document.getElementById('mobile-search');
+      if (mobileSearch) {
+        mobileSearch.classList.toggle('hidden');
+      }
+    }
+
+    // Modal functions
+    function showModal(modalId) {
+      const modal = document.getElementById(modalId);
+      if (modal) {
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+      }
+    }
+
+    function closeModal(modalId) {
+      const modal = document.getElementById(modalId);
+      if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+      }
+    }
+
+    // Close modal when clicking outside
+    document.querySelectorAll('.modal').forEach(modal => {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          closeModal(modal.id);
+        }
+      });
+    });
+
+    // Prevent modal close when clicking inside modal content
+    document.querySelectorAll('.modal-content').forEach(content => {
+      content.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+    });
+
+    // Back to top functionality
+    window.addEventListener('scroll', function() {
+      const backToTop = document.getElementById('back-to-top');
+      if (backToTop) {
+        if (window.pageYOffset > 300) {
+          backToTop.classList.remove('hidden');
+        } else {
+          backToTop.classList.add('hidden');
+        }
+      }
+    });
+
+    function scrollToTop() {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    }
+
+    // Form validation helpers
+    function validateEmail(email) {
+      const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      return re.test(email);
+    }
+
+    function validatePhone(phone) {
+      const re = /^[0-9]{8}$/;
+      return re.test(phone.replace(/\s/g, ''));
+    }
+
+    // Price formatting helper for display
+    function formatCurrency(amount) {
+      return parseFloat(amount).toFixed(2) + ' DT';
+    }
+
+    // Image error handling
+    document.addEventListener('error', function(e) {
+      if (e.target.tagName === 'IMG') {
+        e.target.src = 'https://via.placeholder.com/400x500/E6E6D2/A67C52?text=Image+non+disponible';
+      }
+    }, true);
+
+    // Smooth scrolling for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+        }
+      });
+    });
+
+    // Loading indicator
+    function showLoading(show = true) {
+      const loader = document.getElementById('loading-indicator');
+      if (loader) {
+        if (show) {
+          loader.classList.remove('hidden');
+        } else {
+          loader.classList.add('hidden');
+        }
+      }
+    }
+
+    // Notification system enhancement
+    function createNotification(message, type = 'info', duration = 3000) {
+      const notification = document.createElement('div');
+      notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 transform transition-all duration-300 translate-x-full`;
+      
+      const bgColor = {
+        'success': 'bg-green-500',
+        'error': 'bg-red-500',
+        'warning': 'bg-yellow-500',
+        'info': 'bg-blue-500'
+      }[type] || 'bg-blue-500';
+
+      notification.className += ` ${bgColor} text-white`;
+      notification.innerHTML = `
+        <div class="flex items-center justify-between">
+          <span>${message}</span>
+          <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-white hover:text-gray-200">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      `;
+
+      document.body.appendChild(notification);
+
+      // Animate in
+      setTimeout(() => {
+        notification.classList.remove('translate-x-full');
+      }, 100);
+
+      // Auto remove
+      setTimeout(() => {
+        notification.classList.add('translate-x-full');
+        setTimeout(() => {
+          notification.remove();
+        }, 300);
+      }, duration);
+
+      return notification;
+    }
+  </script>
+
+  <!-- Back to top button -->
+  <button id="back-to-top" onclick="scrollToTop()" 
+          class="hidden fixed bottom-6 right-6 bg-accent hover:bg-accent-dark text-white p-3 rounded-full shadow-lg transition-all duration-300 z-40">
+    <i class="fas fa-chevron-up"></i>
+  </button>
+
+  <!-- Loading indicator -->
+  <div id="loading-indicator" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white p-6 rounded-lg flex items-center space-x-3">
+      <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-accent"></div>
+      <span>Chargement...</span>
+    </div>
+  </div>
+
+</body>
+</html>
+          <div class="form-group">
+            <label class="block text-gray-700 mb-2">Nom du produit *</label>
+            <input type="text" id="product-name" required 
+                   class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+          </div>
+          <div class="form-group">
+            <label class="block text-gray-700 mb-2">Prix (DT) *</label>
+            <input type="number" id="product-price" required step="0.01" min="0"
+                   class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+          </div>
+          <div class="form-group full-width">
+            <label class="block text-gray-700 mb-2">Description *</label>
+            <textarea id="product-description" required rows="3"
+                      class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="block text-gray-700 mb-2">Catégorie *</label>
+            <select id="product-category" required 
+                    class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
               <option value="">Choisir une catégorie</option>
               <option value="robes">Robes</option>
               <option value="tops">Tops & Blouses</option>
@@ -250,89 +923,39 @@
             </select>
           </div>
           <div class="form-group">
-            <label>Stock disponible</label>
-            <input type="number" id="product-stock" required min="0">
+            <label class="block text-gray-700 mb-2">Sous-catégorie</label>
+            <input type="text" id="product-subcategory" placeholder="Ex: soirée, soie, tailleur..."
+                   class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+          </div>
+          <div class="form-group">
+            <label class="block text-gray-700 mb-2">Stock disponible *</label>
+            <input type="number" id="product-stock" required min="0" value="0"
+                   class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
           </div>
           <div class="form-group full-width">
-            <label>URL de l'image</label>
-            <input type="url" id="product-image" required>
+            <label class="block text-gray-700 mb-2">URL de l'image *</label>
+            <input type="url" id="product-image" required placeholder="https://exemple.com/image.jpg"
+                   class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
           </div>
         </div>
 
-        <button type="submit" class="btn-primary" style="width: 100%; margin-top: 20px;">
-          <i class="fas fa-plus"></i> Ajouter le produit
+        <button type="submit" class="bg-accent hover:bg-accent-dark text-white w-full py-3 rounded font-medium transition mt-6">
+          <i class="fas fa-plus mr-2"></i> Ajouter le produit
         </button>
-        <div id="product-error" class="alert alert-error hidden"></div>
-        <div id="product-success" class="alert alert-success hidden"></div>
+        <div id="product-error" class="hidden bg-red-100 text-red-800 p-3 rounded mt-4"></div>
+        <div id="product-success" class="hidden bg-green-100 text-green-800 p-3 rounded mt-4"></div>
       </form>
     </div>
   </div>
 
-  <!-- Checkout Modal (kept) -->
+  <!-- Checkout Modal -->
   <div id="checkout-modal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2 class="modal-title"><i class="fas fa-credit-card"></i> Finaliser votre commande</h2>
-        <button class="close-btn" onclick="closeModal('checkout-modal')">&times;</button>
+    <div class="modal-content max-w-2xl">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-xl font-serif font-bold text-accent">
+          <i class="fas fa-credit-card mr-2"></i> Finaliser votre commande
+        </h2>
+        <button class="text-gray-500 hover:text-gray-700 text-2xl" onclick="closeModal('checkout-modal')">&times;</button>
       </div>
       <form id="checkout-form">
         <div class="form-grid">
-          <div class="form-group"><label>Prénom</label><input id="customer-firstname" required></div>
-          <div class="form-group"><label>Nom</label><input id="customer-lastname" required></div>
-          <div class="form-group"><label>Email</label><input id="customer-email" type="email" required></div>
-          <div class="form-group"><label>Téléphone</label><input id="customer-phone" required></div>
-          <div class="form-group full-width"><label>Adresse</label><textarea id="customer-address" required></textarea></div>
-          <div class="form-group"><label>Gouvernorat</label>
-            <select id="customer-governorate" required>
-              <option value="">Choisir</option>
-              <option value="tunis">Tunis</option>
-              <option value="sfax">Sfax</option>
-              <option value="sousse">Sousse</option>
-              <!-- etc. -->
-            </select>
-          </div>
-          <div class="form-group"><label>Mode paiement</label>
-            <select id="payment-method" required>
-              <option value="">Choisir</option>
-              <option value="cash_on_delivery">Paiement à la livraison</option>
-              <option value="bank_transfer">Virement bancaire</option>
-              <option value="online_payment">Paiement en ligne</option>
-            </select>
-          </div>
-          <div class="form-group full-width"><label>Notes</label><textarea id="order-notes"></textarea></div>
-        </div>
-
-        <div style="background:#f5f5f5;padding:18px;border-radius:12px;margin:18px 0">
-          <h4>Récapitulatif</h4>
-          <div id="checkout-summary"></div>
-        </div>
-
-        <button type="submit" class="btn-primary" style="width:100%">Confirmer la commande</button>
-        <div id="checkout-error" class="alert alert-error hidden"></div>
-      </form>
-    </div>
-  </div>
-
-  <!-- App script -->
-  <script src="app.js"></script>
-
-  <!-- Small UI behaviors -->
-  <script>
-    // Categories dropdown toggle
-    document.addEventListener('click', function(e){
-      const panel = document.getElementById('categories-panel');
-      const btn = document.querySelector('.categories-btn');
-      if (!btn) return;
-      if (btn.contains(e.target)) {
-        panel.classList.toggle('hidden');
-      } else if (!panel.contains(e.target)) {
-        panel.classList.add('hidden');
-      }
-    });
-
-    // Search enter
-    const s = document.getElementById('search-input');
-    if (s) s.addEventListener('keydown', (e) => { if (e.key === 'Enter') applySearch(); } );
-  </script>
-</body>
-</html>

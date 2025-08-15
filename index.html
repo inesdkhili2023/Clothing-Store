@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Elyna — Boutique</title>
+
+<!-- Fonts & icons -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+
+<!-- Styles -->
+<link rel="stylesheet" href="styles.css">
+
+<!-- Supabase lib (used by app.js) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<!-- ===================== SECTION ADMIN ===================== -->
+<section id="admin-section" class="hidden container" style="margin-top:40px; margin-bottom:40px;">
+  <h2 style="margin-bottom:20px"><i class="fas fa-tools"></i> Tableau de bord Administrateur</h2>
+
+  <!-- Stats Cards -->
+  <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:18px; margin-bottom:30px;">
+    <div style="background:var(--card); padding:20px; border-radius:var(--radius); text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.05)">
+      <h3 id="total-orders">0</h3>
+      <p style="color:var(--muted)">Commandes totales</p>
+    </div>
+    <div style="background:var(--card); padding:20px; border-radius:var(--radius); text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.05)">
+      <h3 id="total-revenue">0 DT</h3>
+      <p style="color:var(--muted)">Revenus totaux</p>
+    </div>
+    <div style="background:var(--card); padding:20px; border-radius:var(--radius); text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.05)">
+      <h3 id="total-products">0</h3>
+      <p style="color:var(--muted)">Produits</p>
+    </div>
+    <div style="background:var(--card); padding:20px; border-radius:var(--radius); text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.05)">
+      <h3 id="pending-orders">0</h3>
+      <p style="color:var(--muted)">En attente</p>
+    </div>
+  </div>
+
+  <!-- Bouton Ajouter Produit -->
+  <div style="margin-bottom:20px; text-align:right;">
+    <button class="btn-primary" onclick="showAddProduct()">
+      <i class="fas fa-plus"></i> Ajouter un produit
+    </button>
+  </div>
+
+  <!-- Tableau des commandes -->
+  <h3 style="margin-top:30px; margin-bottom:10px;">Commandes</h3>
+  <div id="orders-table" style="background:var(--card); padding:20px; border-radius:var(--radius); box-shadow:0 4px 12px rgba(0,0,0,0.05)">
+    <!-- Injecté par JS -->
+  </div>
+
+  <!-- Tableau des produits -->
+  <h3 style="margin-top:40px; margin-bottom:10px;">Produits</h3>
+  <div id="admin-products-table" style="background:var(--card); padding:20px; border-radius:var(--radius); box-shadow:0 4px 12px rgba(0,0,0,0.05)">
+    <!-- Injecté par JS -->
+  </div>
+</section>
+
+<body>
+
+  <!-- Announcement -->
+  <div class="announcement-bar">
+    <div class="container"><i class="fas fa-truck"></i> Livraison gratuite partout en Tunisie pour toute commande supérieure à 300 DT</div>
+  </div>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="inner container">
+      <a class="logo" href="#" onclick="showHome()"><img src="assets/logo.png" alt="ELYNA" style="height:44px"></a>
+
+      <nav class="main-nav">
+        <div class="nav-left">
+          <div class="categories-dropdown" id="categories-dropdown">
+            <button class="categories-btn"><i class="fas fa-bars"></i> Catégories <i class="fas fa-chevron-down"></i></button>
+            <div class="categories-panel hidden" id="categories-panel"></div>
+          </div>
+          <a href="#" onclick="showHome()">Accueil</a>
+          <a href="#" onclick="showProducts()">Collection</a>
+          <a href="#">Nouveautés</a>
+          <a href="#">Lookbook</a>
+        </div>
+
+        <div class="nav-right">
+          <div class="search-wrap">
+            <input id="search-input" placeholder="Rechercher un produit..." />
+            <button onclick="applySearch()"><i class="fas fa-search"></i></button>
+          </div>
+
+          <button class="action-btn" onclick="showCart()">
+            <i class="fas fa-shopping-bag"></i>
+            <span class="cart-count" id="cart-count">0</span>
+          </button>
+
+          <button class="action-btn" onclick="showAdminLogin()"><i class="fas fa-user-cog"></i></button>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container hero-inner">
+      <div class="hero-left">
+        <h1>Collection Automne — Élégance tunisienne</h1>
+        <p>Pièces limitées — confection soignée. Livraison rapide en Tunisie.</p>
+        <div class="hero-ctas">
+          <button class="btn-primary" onclick="showProducts()">Voir la collection</button>
+          <a class="hero-link" href="#products-section">Bestsellers</a>
+        </div>
+      </div>
+      <div class="hero-right">
+        <img src="assets/logo.png" alt="visuel" />
+      </div>
+    </div>
+  </section>
+
+  <!-- Filters bar -->
+  <section class="filters container">
+    <div class="filters-row">
+      <div class="filter-group">
+        <label>Catégorie</label>
+        <select id="filter-category" onchange="onCategoryChange()">
+          <option value="">Toutes</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label>Sous-catégorie</label>
+        <select id="filter-subcategory" onchange="applyFilters()">
+          <option value="">Toutes</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label>Tri</label>
+        <select id="filter-sort" onchange="applyFilters()">
+          <option value="new">Nouveautés</option>
+          <option value="price_asc">Prix croissant</option>
+          <option value="price_desc">Prix décroissant</option>
+        </select>
+      </div>
+
+      <div class="filter-actions">
+        <button onclick="resetFilters()">Réinitialiser</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Products -->
+  <main class="container">
+    <section id="products-section" class="products-section">
+      <div class="section-header">
+        <h2>Notre Collection</h2>
+        <p id="results-info">Tous les produits</p>
+      </div>
+
+      <div id="products-grid" class="products-grid">
+        <!-- Injected by app.js -->
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">© Elyna — Tous droits réservés</div>
+  </footer>
+
+  <!-- ----------------- MODALS ----------------- -->
+
+  <!-- Product Detail (Quick View) -->
+  <div id="product-detail-modal" class="modal">
+    <div class="modal-content max-wide">
+      <button class="close-btn" onclick="closeModal('product-detail-modal')">&times;</button>
+      <div class="detail-grid">
+        <div class="detail-gallery" id="detail-gallery"></div>
+        <div class="detail-info" id="detail-info"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cart Modal -->
+  <div id="cart-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title"><i class="fas fa-shopping-bag"></i> Mon Panier</h2>
+        <button class="close-btn" onclick="closeModal('cart-modal')">&times;</button>
+      </div>
+      <div id="cart-items"></div>
+      <div id="cart-total" class="cart-total"></div>
+      <button class="btn-primary" style="width: 100%" onclick="proceedToCheckout()">Finaliser la commande</button>
+    </div>
+  </div>
+
+  <!-- Admin Login Modal -->
+  <div id="admin-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title"><i class="fas fa-user-shield"></i> Connexion Administrateur</h2>
+        <button class="close-btn" onclick="closeModal('admin-modal')">&times;</button>
+      </div>
+      <form id="admin-login-form">
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="admin-email" required placeholder="admin@elyna.tn">
+        </div>
+        <div class="form-group">
+          <label>Mot de passe</label>
+          <input type="password" id="admin-password" required placeholder="••••••••">
+        </div>
+        <button type="submit" class="btn-primary" style="width:100%"><i class="fas fa-sign-in-alt"></i> Se connecter</button>
+        <div id="admin-error" class="alert alert-error hidden"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Product Modal (admin) -->
+  <div id="product-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title"><i class="fas fa-plus"></i> Ajouter un Produit</h2>
+        <button class="close-btn" onclick="closeModal('product-modal')">&times;</button>
+      </div>
+      <form id="add-product-form">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Nom du produit</label>
+            <input type="text" id="product-name" required>
+          </div>
+          <div class="form-group">
+            <label>Prix (DT)</label>
+            <input type="number" id="product-price" required step="0.01">
+          </div>
+          <div class="form-group full-width">
+            <label>Description</label>
+            <textarea id="product-description" required></textarea>
+          </div>
+          <div class="form-group">
+            <label>Catégorie</label>
+            <select id="product-category" required>
+              <option value="">Choisir une catégorie</option>
+              <option value="robes">Robes</option>
+              <option value="tops">Tops & Blouses</option>
+              <option value="pantalons">Pantalons</option>
+              <option value="jupes">Jupes</option>
+              <option value="vestes">Vestes & Blazers</option>
+              <option value="accessoires">Accessoires</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Stock disponible</label>
+            <input type="number" id="product-stock" required min="0">
+          </div>
+          <div class="form-group full-width">
+            <label>URL de l'image</label>
+            <input type="url" id="product-image" required>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary" style="width: 100%; margin-top: 20px;">
+          <i class="fas fa-plus"></i> Ajouter le produit
+        </button>
+        <div id="product-error" class="alert alert-error hidden"></div>
+        <div id="product-success" class="alert alert-success hidden"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Checkout Modal (kept) -->
+  <div id="checkout-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title"><i class="fas fa-credit-card"></i> Finaliser votre commande</h2>
+        <button class="close-btn" onclick="closeModal('checkout-modal')">&times;</button>
+      </div>
+      <form id="checkout-form">
+        <div class="form-grid">
+          <div class="form-group"><label>Prénom</label><input id="customer-firstname" required></div>
+          <div class="form-group"><label>Nom</label><input id="customer-lastname" required></div>
+          <div class="form-group"><label>Email</label><input id="customer-email" type="email" required></div>
+          <div class="form-group"><label>Téléphone</label><input id="customer-phone" required></div>
+          <div class="form-group full-width"><label>Adresse</label><textarea id="customer-address" required></textarea></div>
+          <div class="form-group"><label>Gouvernorat</label>
+            <select id="customer-governorate" required>
+              <option value="">Choisir</option>
+              <option value="tunis">Tunis</option>
+              <option value="sfax">Sfax</option>
+              <option value="sousse">Sousse</option>
+              <!-- etc. -->
+            </select>
+          </div>
+          <div class="form-group"><label>Mode paiement</label>
+            <select id="payment-method" required>
+              <option value="">Choisir</option>
+              <option value="cash_on_delivery">Paiement à la livraison</option>
+              <option value="bank_transfer">Virement bancaire</option>
+              <option value="online_payment">Paiement en ligne</option>
+            </select>
+          </div>
+          <div class="form-group full-width"><label>Notes</label><textarea id="order-notes"></textarea></div>
+        </div>
+
+        <div style="background:#f5f5f5;padding:18px;border-radius:12px;margin:18px 0">
+          <h4>Récapitulatif</h4>
+          <div id="checkout-summary"></div>
+        </div>
+
+        <button type="submit" class="btn-primary" style="width:100%">Confirmer la commande</button>
+        <div id="checkout-error" class="alert alert-error hidden"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- App script -->
+  <script src="app.js"></script>
+
+  <!-- Small UI behaviors -->
+  <script>
+    // Categories dropdown toggle
+    document.addEventListener('click', function(e){
+      const panel = document.getElementById('categories-panel');
+      const btn = document.querySelector('.categories-btn');
+      if (!btn) return;
+      if (btn.contains(e.target)) {
+        panel.classList.toggle('hidden');
+      } else if (!panel.contains(e.target)) {
+        panel.classList.add('hidden');
+      }
+    });
+
+    // Search enter
+    const s = document.getElementById('search-input');
+    if (s) s.addEventListener('keydown', (e) => { if (e.key === 'Enter') applySearch(); } );
+  </script>
+</body>
+</html>

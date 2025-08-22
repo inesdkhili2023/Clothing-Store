@@ -20,6 +20,10 @@ const demoProducts = [
   { id: 7, name: "Robe Cocktail Glamour", description: "Robe de cocktail avec sequins délicats...", price: 369.00, category: "robes", subcategory:"cocktail", stock: 5, image_url: "https://images.unsplash.com/photo-1566479179817-c06fce2a9a5b?w=800&h=1000&fit=crop" },
   { id: 8, name: "Chemisier Créateur", description: "Chemisier design avec imprimé exclusif...", price: 149.00, category: "tops", subcategory:"chemise", stock: 14, image_url: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&h=1000&fit=crop" }
 ];
+function calculatePromoPrice(originalPrice, promoPercent) {
+  if (!promoPercent || promoPercent <= 0) return originalPrice;
+  return originalPrice * (1 - promoPercent / 100);
+}
 
 /* ========== UTILITAIRES ========== */
 function formatPrice(n){ return (Number(n)||0).toFixed(2); }
@@ -153,9 +157,15 @@ function renderProducts(list){
   if(!container) return;
   const arr = list || products;
   if(arr.length===0){ container.innerHTML = '<p style="padding:30px;text-align:center;color:#777">Aucun produit trouvé</p>'; document.getElementById('results-info').textContent='0 produit(s)'; return; }
-  container.innerHTML = arr.map(p=>`
+  container.innerHTML = arr.map(p=>{
+    const hasPromo = p.promo && p.promo > 0;
+    const originalPrice = p.price || 0;
+    const promoPrice = hasPromo ? calculatePromoPrice(originalPrice, p.promo) : originalPrice;
+    
+    return `
     <article class="product-card" data-id="${p.id}">
       <div class="product-image-container" onclick="showProductDetail(${p.id})">
+        ${hasPromo ? `<div class="promo-badge">-${p.promo}%</div>` : ''}
         <img class="product-image" src="${p.image_url}" alt="${escapeHtml(p.name)}" onerror="this.src='https://via.placeholder.com/600x800?text=Image'"/>
         <div class="product-overlay">
           <button class="quick-view-btn" onclick="(function(e){e.stopPropagation(); showProductDetail(${p.id});})(event)"><i class="fas fa-eye"></i> Aperçu</button>
@@ -164,7 +174,13 @@ function renderProducts(list){
       <div class="product-info">
         <div class="product-category">${escapeHtml(getCategoryName(p.category))}</div>
         <div class="product-title">${escapeHtml(p.name)}</div>
-        <div class="product-price">${formatPrice(p.price)} DT</div>
+        <div class="product-price">
+          ${hasPromo ? 
+            `<span class="original-price">${formatPrice(originalPrice)} DT</span>
+             <span class="promo-price">${formatPrice(promoPrice)} DT</span>` :
+            `${formatPrice(originalPrice)} DT`
+          }
+        </div>
         <p style="color:var(--muted);font-size:0.9rem;line-height:1.4">${escapeHtml(String(p.description||'')).slice(0,130)}</p>
         <div class="product-actions" style="margin-top:12px">
           <button class="btn-add-cart" onclick="(function(e){ e.stopPropagation(); addToCart(${p.id}); })(event)" ${p.stock<=0? 'disabled':''}>
@@ -175,7 +191,8 @@ function renderProducts(list){
         ${p.stock <= 5 && p.stock > 0 ? `<div style="color:var(--accent-2);font-size:0.85rem;margin-top:8px;font-weight:600"><i class="fas fa-exclamation-triangle"></i> Plus que ${p.stock} en stock</div>` : ''}
       </div>
     </article>
-  `).join('');
+  `;
+  }).join('');
   document.getElementById('results-info').textContent = `${arr.length} produit(s)`;
 }
 
@@ -226,10 +243,9 @@ function showProductDetail(productId){
   const info = document.getElementById('detail-info');
   if(!modal || !gallery || !info) return;
 
-  // create images array (use image_url and variations if necessary)
+  // create images array
   const imgs = [];
   if(p.image_url) imgs.push(p.image_url);
-  // Add fallback variations to allow thumbnails for demo
   if(!p.image_url.includes('?')) imgs.push(p.image_url + '?auto=format&w=900');
   imgs.push(p.image_url + '&q=60');
 
@@ -239,10 +255,22 @@ function showProductDetail(productId){
     <div class="detail-thumbs" id="detail-thumbs">${imgs.map((u,i)=>`<img src="${u}" data-idx="${i}" class="${i===0?'active':''}" onclick="detailThumbClick(this)"/>`).join('')}</div>
   `;
 
+  // Calculer les prix
+  const hasPromo = p.promo && p.promo > 0;
+  const originalPrice = p.price || 0;
+  const promoPrice = hasPromo ? calculatePromoPrice(originalPrice, p.promo) : originalPrice;
+
   // info
   info.innerHTML = `
     <h2>${escapeHtml(p.name)}</h2>
-    <div class="price">${formatPrice(p.price)} DT</div>
+    ${hasPromo ? `<div class="promo-info"><span class="promo-percent">-${p.promo}% DE RÉDUCTION</span></div>` : ''}
+    <div class="price">
+      ${hasPromo ? 
+        `<span class="original-price-large">${formatPrice(originalPrice)} DT</span>
+         <span class="promo-price-large">${formatPrice(promoPrice)} DT</span>` :
+        `${formatPrice(originalPrice)} DT`
+      }
+    </div>
     <div style="color:var(--muted);margin-top:8px">${escapeHtml(p.description || '')}</div>
     <div style="margin-top:12px"><strong>Catégorie:</strong> ${escapeHtml(getCategoryName(p.category))}${p.subcategory ? ' / ' + escapeHtml(p.subcategory) : ''}</div>
     <div class="qty-row" style="margin-top:16px;">
@@ -262,6 +290,7 @@ function showProductDetail(productId){
   modal.dataset.qty = 1;
   showModal('product-detail-modal');
 }
+
 
 function detailThumbClick(imgEl){
   document.getElementById('detail-main-img').src = imgEl.src;
@@ -416,7 +445,7 @@ async function handleCheckout(e){
     const orderData = { customer_data: customerData, items: orderItems, subtotal, shipping_fee: shippingFee, total_amount: totalAmount, status: 'pending', order_date: new Date().toISOString() };
 
     if(supabaseClient){
-      const { data, error } = await supabaseClient.from('orders').insert(orderData).select();
+const { error } = await supabaseClient.from('orders').insert(orderData);
       if(error) throw error;
       // update stocks
       for(const it of cart){
@@ -432,7 +461,9 @@ async function handleCheckout(e){
     cart = [];
     saveCartToStorage(); updateCartCount();
     closeModal('checkout-modal');
-    showOrderSuccess(orderData);
+    // Générer un ID pour l'affichage de confirmation
+orderData.id = Date.now() + Math.floor(Math.random()*1000);
+showOrderSuccess(orderData);
     renderProducts();
   } catch(err){
     console.error('Erreur commande', err);
@@ -739,13 +770,19 @@ function updateAdminProductsTable(){
             <th class="px-4 py-3 text-left text-sm font-semibold">Image</th>
             <th class="px-4 py-3 text-left text-sm font-semibold">Produit</th>
             <th class="px-4 py-3 text-left text-sm font-semibold">Prix</th>
+            <th class="px-4 py-3 text-left text-sm font-semibold">Promo</th>
             <th class="px-4 py-3 text-left text-sm font-semibold">Stock</th>
             <th class="px-4 py-3 text-left text-sm font-semibold">Catégorie</th>
             <th class="px-4 py-3 text-left text-sm font-semibold">Actions</th>
           </tr>
         </thead>
         <tbody>
-          ${products.map(p=>`
+          ${products.map(p=>{
+            const hasPromo = p.promo && p.promo > 0;
+            const originalPrice = p.price || 0;
+            const promoPrice = hasPromo ? calculatePromoPrice(originalPrice, p.promo) : originalPrice;
+            
+            return `
             <tr class="border-b hover:bg-gray-50">
               <td class="px-4 py-3 font-medium">${p.id}</td>
               <td class="px-4 py-3">
@@ -755,7 +792,19 @@ function updateAdminProductsTable(){
                 <div class="font-medium">${escapeHtml(p.name)}</div>
                 <div class="text-sm text-gray-500">${escapeHtml(String(p.description||'')).slice(0,50)}...</div>
               </td>
-              <td class="px-4 py-3 text-accent font-medium">${formatPrice(p.price)} DT</td>
+              <td class="px-4 py-3 text-accent font-medium">
+                ${hasPromo ? 
+                  `<div class="line-through text-gray-400 text-sm">${formatPrice(originalPrice)} DT</div>
+                   <div class="text-accent font-bold">${formatPrice(promoPrice)} DT</div>` :
+                  `${formatPrice(originalPrice)} DT`
+                }
+              </td>
+              <td class="px-4 py-3">
+                ${hasPromo ? 
+                  `<span class="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">-${p.promo}%</span>` :
+                  `<span class="text-gray-400">-</span>`
+                }
+              </td>
               <td class="px-4 py-3">
                 <span class="px-2 py-1 rounded-full text-xs font-medium ${p.stock > 5 ? 'bg-green-100 text-green-800' : p.stock > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}">
                   ${p.stock||0}
@@ -773,7 +822,8 @@ function updateAdminProductsTable(){
                 </div>
               </td>
             </tr>
-          `).join('')}
+          `;
+          }).join('')}
         </tbody>
       </table>
     </div>
@@ -797,6 +847,7 @@ function editProduct(id){
   document.getElementById('product-category').value = product.category || '';
   document.getElementById('product-stock').value = product.stock || 0;
   document.getElementById('product-image').value = product.image_url || '';
+  document.getElementById('product-promo').value = product.promo || 0; // NOUVEAU
   
   // Ajouter une sous-catégorie si elle existe
   const subcategoryField = document.getElementById('product-subcategory');
@@ -844,10 +895,16 @@ async function handleAddProduct(e){
   const category = document.getElementById('product-category').value;
   const stock = parseInt(document.getElementById('product-stock').value,10);
   const image = document.getElementById('product-image').value.trim();
+  const promo = parseInt(document.getElementById('product-promo').value,10) || 0; // NOUVEAU
   
   if(!name||isNaN(price)||!category) { 
     showNotification('Veuillez remplir tous les champs obligatoires','error'); 
     return; 
+  }
+
+  if(promo < 0 || promo > 100) {
+    showNotification('La promotion doit être entre 0 et 100%','error');
+    return;
   }
 
   const productData = { 
@@ -856,6 +913,7 @@ async function handleAddProduct(e){
     description: desc, 
     category, 
     stock: isNaN(stock) ? 0 : stock, 
+    promo: promo, // NOUVEAU
     image_url: image || 'https://via.placeholder.com/600x800?text=Image', 
     created_at: new Date().toISOString() 
   };

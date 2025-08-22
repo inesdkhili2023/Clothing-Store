@@ -361,20 +361,103 @@
         </div>
 
         <!-- Desktop Navigation -->
-        <nav class="hidden md:flex items-center space-x-8">
-          <div class="dropdown relative">
-            <button class="hover:text-accent transition flex items-center" id="categories-dropdown">
-              <i class="fas fa-bars mr-2"></i> Catégories 
-              <i class="fas fa-chevron-down ml-1 text-xs"></i>
-            </button>
-            <div class="categories-panel hidden" id="categories-panel">
-              <!-- Will be populated by JS -->
-            </div>
-          </div>
+        <nav class="flex items-center space-x-8">
+
           <a href="#" onclick="showHome()" class="hover:text-accent transition">Accueil</a>
-          <a href="#" onclick="showProducts()" class="hover:text-accent transition">Collection</a>
-          <a href="#" class="hover:text-accent transition">Nouveautés</a>
-          <a href="#" class="hover:text-accent transition">Lookbook</a>
+<div class="flex space-x-6">
+  <!-- Femme -->
+  <div class="dropdown relative">
+    <button class="hover:text-accent transition flex items-center" id="dropdown-femme">
+      <i class="fas fa-bars mr-2"></i> Femme
+      <i class="fas fa-chevron-down ml-1 text-xs"></i>
+    </button>
+    <div class="categories-panel hidden absolute bg-white shadow rounded mt-2 w-40" id="panel-femme">
+      <ul class="flex flex-col">
+        <li class="px-4 py-2 hover:bg-gray-100 cursor-pointer">Summer Vibes</li>
+        <li class="px-4 py-2 hover:bg-gray-100 cursor-pointer">Winter Vibes</li>
+        <li class="px-4 py-2 hover:bg-gray-100 cursor-pointer">Tops</li>
+        <li class="px-4 py-2 hover:bg-gray-100 cursor-pointer">Bottoms</li>
+                <li class="relative group">
+          <div class="px-4 py-2 hover:bg-gray-100 cursor-pointer flex justify-between items-center">
+            Co-ords <i class="fas fa-chevron-right text-xs"></i>
+          </div>
+          <ul class="hidden group-hover:block absolute top-0 left-full bg-white shadow rounded w-40">
+            <li class="px-4 py-2 hover:bg-gray-100 cursor-pointer">Aqua</li>
+            <li class="px-4 py-2 hover:bg-gray-100 cursor-pointer">Mini Dresses</li>
+          </ul>
+        </li>
+        <li class="px-4 py-2 hover:bg-gray-100 cursor-pointer">Shoes</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Homme -->
+  <div class="dropdown relative">
+    <button class="hover:text-accent transition flex items-center" id="dropdown-homme">
+      <i class="fas fa-bars mr-2"></i> Homme
+      <i class="fas fa-chevron-down ml-1 text-xs"></i>
+    </button>
+    <div class="categories-panel hidden absolute bg-white shadow rounded mt-2 w-40" id="panel-homme">
+      <ul class="flex flex-col">
+        <li class="px-4 py-2 hover:bg-gray-100 cursor-pointer">Summer Vibes</li>
+        <li class="px-4 py-2 hover:bg-gray-100 cursor-pointer">Winter Vibes</li>
+               <!-- Tops avec sous-menu -->
+        <li class="relative group">
+          <div class="px-4 py-2 hover:bg-gray-100 cursor-pointer flex justify-between items-center">
+            Tops <i class="fas fa-chevron-right text-xs"></i>
+          </div>
+          <ul class="hidden group-hover:block absolute top-0 left-full bg-white shadow rounded w-40">
+            <li class="px-4 py-2 hover:bg-gray-100 cursor-pointer">T-shirt</li>
+          </ul>
+        </li>
+               <li class="relative group">
+          <div class="px-4 py-2 hover:bg-gray-100 cursor-pointer flex justify-between items-center">
+            Bottoms <i class="fas fa-chevron-right text-xs"></i>
+          </div>
+          <ul class="hidden group-hover:block absolute top-0 left-full bg-white shadow rounded w-40">
+            <li class="px-4 py-2 hover:bg-gray-100 cursor-pointer">Short</li>
+            <li class="px-4 py-2 hover:bg-gray-100 cursor-pointer">Pants</li>
+          </ul>
+        </li>
+                <li class="relative group">
+          <div class="px-4 py-2 hover:bg-gray-100 cursor-pointer flex justify-between items-center">
+            Co-ords <i class="fas fa-chevron-right text-xs"></i>
+          </div>
+          <ul class="hidden group-hover:block absolute top-0 left-full bg-white shadow rounded w-40">
+            <li class="px-4 py-2 hover:bg-gray-100 cursor-pointer">Casual Set</li>
+            <li class="px-4 py-2 hover:bg-gray-100 cursor-pointer">Urban Set</li>
+          </ul>
+        </li>
+        <li class="px-4 py-2 hover:bg-gray-100 cursor-pointer">Shoes</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Enfant -->
+  <div class="dropdown relative">
+    <button class="hover:text-accent transition flex items-center" id="dropdown-enfant">
+      <i class="fas fa-bars mr-2"></i> Enfant
+      <i class="fas fa-chevron-down ml-1 text-xs"></i>
+    </button>
+    <div class="categories-panel hidden absolute bg-white shadow rounded mt-2 w-40" id="panel-enfant">
+      <ul class="flex flex-col">
+        <li class="px-4 py-2 hover:bg-gray-100 cursor-pointer">Summer Vibes</li>
+        <li class="px-4 py-2 hover:bg-gray-100 cursor-pointer">Winter Vibes</li>
+                <li class="relative group">
+          <div class="px-4 py-2 hover:bg-gray-100 cursor-pointer flex justify-between items-center">
+            Co-ords <i class="fas fa-chevron-right text-xs"></i>
+          </div>
+          <ul class="hidden group-hover:block absolute top-0 left-full bg-white shadow rounded w-40">
+            <li class="px-4 py-2 hover:bg-gray-100 cursor-pointer">Girl</li>
+            <li class="px-4 py-2 hover:bg-gray-100 cursor-pointer">Boy</li>
+          </ul>
+        </li>
+      
+      </ul>
+    </div>
+  </div>
+</div>
+
         </nav>
 
         <!-- Search & Actions -->
@@ -604,68 +687,84 @@
   </div>
 
   <!-- Add/Edit Product Modal -->
-  <div id="product-modal" class="modal">
-    <div class="modal-content max-w-2xl">
-      <div class="flex justify-between items-center mb-6">
-        <h2 class="text-xl font-serif font-bold text-accent">
-          <i class="fas fa-plus mr-2"></i> Ajouter un Produit
-        </h2>
-        <button class="text-gray-500 hover:text-gray-700 text-2xl" onclick="resetProductForm(); closeModal('product-modal')">&times;</button>
+ <!-- Add/Edit Product Modal avec champ promo -->
+<div id="product-modal" class="modal">
+  <div class="modal-content max-w-2xl">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-xl font-serif font-bold text-accent">
+        <i class="fas fa-plus mr-2"></i> Ajouter un Produit
+      </h2>
+      <button class="text-gray-500 hover:text-gray-700 text-2xl" onclick="resetProductForm(); closeModal('product-modal')">&times;</button>
+    </div>
+    <form id="add-product-form">
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="block text-gray-700 mb-2">Nom du produit *</label>
+        <input type="text" id="product-name" required 
+               class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
       </div>
-      <form id="add-product-form">
-      <div class="form-grid">
-        <div class="form-group">
-          <label class="block text-gray-700 mb-2">Nom du produit *</label>
-          <input type="text" id="product-name" required 
-                 class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
-        </div>
-        <div class="form-group">
-          <label class="block text-gray-700 mb-2">Prix (DT) *</label>
-          <input type="number" id="product-price" required step="0.01" min="0"
-                 class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
-        </div>
-        <div class="form-group full-width">
-          <label class="block text-gray-700 mb-2">Description *</label>
-          <textarea id="product-description" required rows="3"
-                    class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent"></textarea>
-        </div>
-        <div class="form-group">
-          <label class="block text-gray-700 mb-2">Catégorie *</label>
-          <select id="product-category" required 
-                  class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
-            <option value="">Choisir une catégorie</option>
-            <option value="robes">Robes</option>
-            <option value="tops">Tops & Blouses</option>
-            <option value="pantalons">Pantalons</option>
-            <option value="jupes">Jupes</option>
-            <option value="vestes">Vestes & Blazers</option>
-            <option value="accessoires">Accessoires</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="block text-gray-700 mb-2">Sous-catégorie</label>
-          <input type="text" id="product-subcategory" placeholder="Ex: soirée, soie, tailleur..."
-                 class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
-        </div>
-        <div class="form-group">
-          <label class="block text-gray-700 mb-2">Stock disponible *</label>
-          <input type="number" id="product-stock" required min="0" value="0"
-                 class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
-        </div>
-        <div class="form-group full-width">
-          <label class="block text-gray-700 mb-2">URL de l'image *</label>
-          <input type="url" id="product-image" required placeholder="https://exemple.com/image.jpg"
-                 class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
-        </div>
+      <div class="form-group">
+        <label class="block text-gray-700 mb-2">Prix (DT) *</label>
+        <input type="number" id="product-price" required step="0.01" min="0"
+               class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
       </div>
+      <div class="form-group full-width">
+        <label class="block text-gray-700 mb-2">Description *</label>
+        <textarea id="product-description" required rows="3"
+                  class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="block text-gray-700 mb-2">Catégorie *</label>
+        <select id="product-category" required 
+                class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+          <option value="">Choisir une catégorie</option>
+          <option value="robes">Robes</option>
+          <option value="tops">Tops & Blouses</option>
+          <option value="pantalons">Pantalons</option>
+          <option value="jupes">Jupes</option>
+          <option value="vestes">Vestes & Blazers</option>
+          <option value="accessoires">Accessoires</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="block text-gray-700 mb-2">Sous-catégorie</label>
+        <input type="text" id="product-subcategory" placeholder="Ex: soirée, soie, tailleur..."
+               class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+      </div>
+      <div class="form-group">
+        <label class="block text-gray-700 mb-2">Stock disponible *</label>
+        <input type="number" id="product-stock" required min="0" value="0"
+               class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+      </div>
+      
+      <!-- NOUVEAU CHAMP PROMO -->
+      <div class="form-group">
+        <label class="block text-gray-700 mb-2">
+          Promotion (%)
+          <span class="text-sm text-gray-500">- Optionnel</span>
+        </label>
+        <input type="number" id="product-promo" min="0" max="100" step="1" value="0"
+               placeholder="0-100"
+               class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+        <p class="text-xs text-gray-500 mt-1">
+          Pourcentage de réduction (0 = pas de promotion)
+        </p>
+      </div>
+      
+      <div class="form-group full-width">
+        <label class="block text-gray-700 mb-2">URL de l'image *</label>
+        <input type="url" id="product-image" required placeholder="https://exemple.com/image.jpg"
+               class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+      </div>
+    </div>
 
-      <button type="submit" class="bg-accent hover:bg-accent-dark text-white w-full py-3 rounded font-medium transition mt-6">
-        <i class="fas fa-plus mr-2"></i> Ajouter le produit
-      </button>
-      <div id="product-error" class="hidden bg-red-100 text-red-800 p-3 rounded mt-4"></div>
-      <div id="product-success" class="hidden bg-green-100 text-green-800 p-3 rounded mt-4"></div>
-    </form>
-  </div>
+    <button type="submit" class="bg-accent hover:bg-accent-dark text-white w-full py-3 rounded font-medium transition mt-6">
+      <i class="fas fa-plus mr-2"></i> Ajouter le produit
+    </button>
+    <div id="product-error" class="hidden bg-red-100 text-red-800 p-3 rounded mt-4"></div>
+    <div id="product-success" class="hidden bg-green-100 text-green-800 p-3 rounded mt-4"></div>
+  </form>
+</div>
 </div>
   <!-- App script -->
   <script src="app.js"></script>
@@ -673,18 +772,93 @@
   <!-- UI behaviors -->
   <script>
     // Categories dropdown toggle
-    document.addEventListener('click', function(e){
-      const panel = document.getElementById('categories-panel');
-      const btn = document.querySelector('#categories-dropdown');
-      if (!btn) return;
-      if (btn.contains(e.target)) {
-        panel.classList.toggle('hidden');
-      } else if (!panel.contains(e.target)) {
-        panel.classList.add('hidden');
-      }
+document.addEventListener('DOMContentLoaded', function () {
+  const configs = [
+    { btn: 'dropdown-femme',  panel: 'panel-femme'  },
+    { btn: 'dropdown-homme',  panel: 'panel-homme'  },
+    { btn: 'dropdown-enfant', panel: 'panel-enfant' }
+  ];
+
+  // Helper : fermer tout
+  function closeAll() {
+    configs.forEach(c => {
+      const p = document.getElementById(c.panel);
+      if (p) p.classList.add('hidden');
+    });
+    document.querySelectorAll('.categories-panel li > ul').forEach(u => u.classList.add('hidden'));
+  }
+
+  // Click global : gérer ouverture des panels et fermeture si clic à l'extérieur
+  document.addEventListener('click', function (e) {
+    // 1) Si on clique sur un bouton principal (Femme/Homme/Enfant)
+    const clicked = configs.find(c => {
+      const btn = document.getElementById(c.btn);
+      return btn && btn.contains(e.target);
     });
 
-    // Search enter
+    if (clicked) {
+      const panel = document.getElementById(clicked.panel);
+      if (!panel) return;
+      const isOpen = !panel.classList.contains('hidden');
+
+      // fermer tous les panels et sous-menus
+      closeAll();
+
+      // ouvrir celui cliqué si il n'était pas ouvert
+      if (!isOpen) panel.classList.remove('hidden');
+
+      e.stopPropagation();
+      return;
+    }
+
+    // 2) Si on clique DANS un panel : ne rien fermer globalement (les sous-menu ont leurs handlers)
+    if (e.target.closest('.categories-panel')) {
+      return;
+    }
+
+    // 3) Sinon (clic à l'extérieur) -> tout fermer
+    closeAll();
+  });
+
+  // Setup des sous-menus : on cherche <li> qui ont un <ul> enfant direct
+  document.querySelectorAll('.categories-panel').forEach(panel => {
+    // s'assurer que les sous-menus sont cachés au départ
+    panel.querySelectorAll(':scope li > ul').forEach(u => u.classList.add('hidden'));
+
+    panel.querySelectorAll(':scope li').forEach(li => {
+      const submenu = li.querySelector(':scope > ul');
+      if (!submenu) return;
+
+      // trouver l'élément toggle (le div/btn/a juste avant le <ul>)
+      let toggle = li.querySelector(':scope > button, :scope > a, :scope > div, :scope > span');
+      if (!toggle) toggle = li.firstElementChild;
+
+      // rendre cliquable et gérer toggle
+      toggle.style.cursor = 'pointer';
+      toggle.addEventListener('click', function (ev) {
+        ev.stopPropagation(); // empêcher la fermeture globale
+
+        // fermer les autres sous-menus du même panneau
+        panel.querySelectorAll(':scope li > ul').forEach(u => {
+          if (u !== submenu) u.classList.add('hidden');
+        });
+
+        // toggle celui-ci
+        submenu.classList.toggle('hidden');
+      });
+
+      // si on clique sur un élément à l'intérieur du sous-menu, ne pas fermer tout
+      submenu.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+      });
+    });
+  });
+
+  // Fermer tout sur ESC
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeAll();
+  });
+});
     const searchInput = document.getElementById('search-input');
     if (searchInput) {
       searchInput.addEventListener('keydown', (e) => { 

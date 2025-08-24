@@ -1,4 +1,3 @@
-
 const supabaseUrl = 'https://emcffxoyfetkkcnlofpk.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtY2ZmeG95ZmV0a2tjbmxvZnBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ5NTU1MzMsImV4cCI6MjA3MDUzMTUzM30.CDeP5WUIAoTE4K6AEwHFIjtcOwbyx4Nr1AVZ0yBuLXE';
 
@@ -7,19 +6,24 @@ let currentAdmin = null;
 let products = [];
 let cart = [];
 let orders = [];
-let editingProduct = null; // Pour l'édition
+let editingProduct = null;
+
+// ========== NOUVELLES VARIABLES POUR CATÉGORIES DYNAMIQUES ==========
+let genres = [];
+let categories = [];
+let subcategories = [];
+let editingCategory = null;
 
 /* Demo products (used if Supabase absent) */
 const demoProducts = [
-  { id: 1, name: "Robe Satin Élégante", description: "Magnifique robe en satin premium...", price: 249.00, category: "robes", subcategory:"soirée", stock: 15, image_url: "https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=800&h=1000&fit=crop" },
-  { id: 2, name: "Blouse Soie Moderne", description: "Blouse en soie naturelle...", price: 189.00, category: "tops", subcategory:"soie", stock: 22, image_url: "https://images.unsplash.com/photo-1564257577154-75b6b8842501?w=800&h=1000&fit=crop" },
-  { id: 3, name: "Pantalon Tailleur Premium", description: "Pantalon de tailleur en laine stretch...", price: 159.00, category: "pantalons", subcategory:"tailleur", stock: 18, image_url: "https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=800&h=1000&fit=crop" },
-  { id: 4, name: "Jupe Midi Plissée Luxe", description: "Jupe midi en tissu fluide premium...", price: 129.00, category: "jupes", subcategory:"plissée", stock: 12, image_url: "https://images.unsplash.com/photo-1583496661160-fb5886a13d27?w=800&h=1000&fit=crop" },
-  { id: 5, name: "Blazer Couture Moderne", description: "Blazer structuré avec détails couture...", price: 279.00, category: "vestes", subcategory:"coton", stock: 8, image_url: "https://images.unsplash.com/photo-1544957992-20514f595d6f?w=800&h=1000&fit=crop" },
-  { id: 6, name: "Sac Cuir Premium", description: "Sac à main en cuir italien véritable...", price: 329.00, category: "accessoires", subcategory:"sacs", stock: 6, image_url: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=800&h=1000&fit=crop" },
-  { id: 7, name: "Robe Cocktail Glamour", description: "Robe de cocktail avec sequins délicats...", price: 369.00, category: "robes", subcategory:"cocktail", stock: 5, image_url: "https://images.unsplash.com/photo-1566479179817-c06fce2a9a5b?w=800&h=1000&fit=crop" },
-  { id: 8, name: "Chemisier Créateur", description: "Chemisier design avec imprimé exclusif...", price: 149.00, category: "tops", subcategory:"chemise", stock: 14, image_url: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&h=1000&fit=crop" }
+  { id: 1, name: "Robe Satin Élégante", description: "Magnifique robe en satin premium...", price: 249.00, category_id: 1, subcategory_id: null, stock: 15, image_url: "https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=800&h=1000&fit=crop" },
+  { id: 2, name: "Blouse Soie Moderne", description: "Blouse en soie naturelle...", price: 189.00, category_id: 3, subcategory_id: null, stock: 22, image_url: "https://images.unsplash.com/photo-1564257577154-75b6b8842501?w=800&h=1000&fit=crop" },
+  { id: 3, name: "Pantalon Tailleur Premium", description: "Pantalon de tailleur en laine stretch...", price: 159.00, category_id: 4, subcategory_id: null, stock: 18, image_url: "https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=800&h=1000&fit=crop" },
+  { id: 4, name: "Jupe Midi Plissée Luxe", description: "Jupe midi en tissu fluide premium...", price: 129.00, category_id: 4, subcategory_id: null, stock: 12, image_url: "https://images.unsplash.com/photo-1583496661160-fb5886a13d27?w=800&h=1000&fit=crop" },
+  { id: 5, name: "Co-ord Set Aqua", description: "Ensemble coordonné tendance...", price: 279.00, category_id: 5, subcategory_id: 1, stock: 8, image_url: "https://images.unsplash.com/photo-1544957992-20514f595d6f?w=800&h=1000&fit=crop" },
+  { id: 6, name: "Mini Dress Sparkle", description: "Robe courte avec détails brillants...", price: 329.00, category_id: 5, subcategory_id: 2, stock: 6, image_url: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=800&h=1000&fit=crop" },
 ];
+
 function calculatePromoPrice(originalPrice, promoPercent) {
   if (!promoPercent || promoPercent <= 0) return originalPrice;
   return originalPrice * (1 - promoPercent / 100);
@@ -69,17 +73,326 @@ function showHeader(){
   if(productsSection) productsSection.classList.remove('hidden');
 }
 
-/* ========== CATEGORIES (tree) ========== */
-let categoryTree = {}; // {cat: Set(subs)}
+// ========== CHARGEMENT DES CATÉGORIES DYNAMIQUES ==========
+
+async function loadGenres() {
+  try {
+    if (!supabaseClient) {
+      // Mode demo
+      genres = [
+        { id: 1, name: 'Femme', icon: 'fas fa-venus', display_order: 1 },
+        { id: 2, name: 'Homme', icon: 'fas fa-mars', display_order: 2 },
+        { id: 3, name: 'Enfant', icon: 'fas fa-child', display_order: 3 }
+      ];
+      return;
+    }
+    
+    const { data, error } = await supabaseClient
+      .from('genres')
+      .select('*')
+      .eq('is_active', true)
+      .order('display_order');
+    
+    if (error) throw error;
+    genres = data || [];
+  } catch (err) {
+    console.error('Erreur chargement genres:', err);
+    // Fallback sur demo
+    genres = [
+      { id: 1, name: 'Femme', icon: 'fas fa-venus', display_order: 1 },
+      { id: 2, name: 'Homme', icon: 'fas fa-mars', display_order: 2 },
+      { id: 3, name: 'Enfant', icon: 'fas fa-child', display_order: 3 }
+    ];
+  }
+}
+
+async function loadCategories() {
+  try {
+    if (!supabaseClient) {
+      // Mode demo
+      categories = [
+        // Femme
+        { id: 1, name: 'Summer Vibes', slug: 'summer-vibes', genre_id: 1 },
+        { id: 2, name: 'Winter Vibes', slug: 'winter-vibes', genre_id: 1 },
+        { id: 3, name: 'Tops', slug: 'tops', genre_id: 1 },
+        { id: 4, name: 'Bottoms', slug: 'bottoms', genre_id: 1 },
+        { id: 5, name: 'Co-ords', slug: 'co-ords', genre_id: 1 },
+        { id: 6, name: 'Shoes', slug: 'shoes', genre_id: 1 },
+        
+        // Homme - NOUVEAU
+        { id: 7, name: 'Shirts', slug: 'shirts', genre_id: 2 },
+        { id: 8, name: 'Pants', slug: 'pants', genre_id: 2 },
+        { id: 9, name: 'Jackets', slug: 'jackets', genre_id: 2 },
+        { id: 10, name: 'Shoes', slug: 'shoes-homme', genre_id: 2 },
+        
+        // Enfant - NOUVEAU  
+        { id: 11, name: 'Vêtements Garçon', slug: 'garcon', genre_id: 3 },
+        { id: 12, name: 'Vêtements Fille', slug: 'fille', genre_id: 3 },
+        { id: 13, name: 'Chaussures Enfant', slug: 'chaussures-enfant', genre_id: 3 }
+      ];
+
+      return;
+    }
+    
+    const { data, error } = await supabaseClient
+      .from('categories')
+      .select(`
+        *,
+        genres(name)
+      `)
+      .eq('is_active', true)
+      .order('genre_id')
+      .order('display_order');
+    
+    if (error) throw error;
+    categories = data || [];
+  } catch (err) {
+    console.error('Erreur chargement catégories:', err);
+    // Fallback sur demo
+    categories = [
+      { id: 1, name: 'Summer Vibes', slug: 'summer-vibes', genre_id: 1 },
+      { id: 2, name: 'Winter Vibes', slug: 'winter-vibes', genre_id: 1 },
+      { id: 3, name: 'Tops', slug: 'tops', genre_id: 1 },
+      { id: 4, name: 'Bottoms', slug: 'bottoms', genre_id: 1 },
+      { id: 5, name: 'Co-ords', slug: 'co-ords', genre_id: 1 },
+      { id: 6, name: 'Shoes', slug: 'shoes', genre_id: 1 }
+    ];
+  }
+}
+
+async function loadSubcategories() {
+  try {
+    if (!supabaseClient) {
+      // Mode demo
+      subcategories = [
+        { id: 1, name: 'Aqua', slug: 'aqua', category_id: 5 },
+        { id: 2, name: 'Mini Dresses', slug: 'mini-dresses', category_id: 5 }
+      ];
+      return;
+    }
+    
+    const { data, error } = await supabaseClient
+      .from('subcategories')
+      .select(`
+        *,
+        categories(name, genres(name))
+      `)
+      .eq('is_active', true)
+      .order('category_id')
+      .order('display_order');
+    
+    if (error) throw error;
+    subcategories = data || [];
+  } catch (err) {
+    console.error('Erreur chargement sous-catégories:', err);
+    // Fallback sur demo
+    subcategories = [
+      { id: 1, name: 'Aqua', slug: 'aqua', category_id: 5 },
+      { id: 2, name: 'Mini Dresses', slug: 'mini-dresses', category_id: 5 }
+    ];
+  }
+}
+
+// ========== RENDU DYNAMIQUE HEADER ==========
+
+function renderDynamicHeader() {
+  const navContainer = document.querySelector('nav .flex.space-x-6');
+  if (!navContainer) return;
+  
+  // Vider le contenu existant mais garder les liens fixes
+  const staticLinks = navContainer.querySelectorAll('a[onclick*="showHome"], a[onclick*="showProducts"]');
+  navContainer.innerHTML = '';
+  
+  // Remettre les liens statiques
+  staticLinks.forEach(link => navContainer.appendChild(link.cloneNode(true)));
+  
+  // Ajouter les genres dynamiques
+  genres.forEach(genre => {
+    const genreCategories = categories.filter(cat => cat.genre_id === genre.id);
+    
+    // MODIFICATION : Afficher le genre même s'il n'a pas de catégories
+    const dropdown = document.createElement('div');
+    dropdown.className = 'dropdown relative';
+    
+    if (genreCategories.length === 0) {
+      // Genre sans catégories - afficher comme lien simple
+      dropdown.innerHTML = `
+        <button class="hover:text-accent transition flex items-center" onclick="filterByGenre(${genre.id})">
+          <i class="${genre.icon} mr-2"></i> ${genre.name}
+        </button>
+      `;
+    } else {
+      // Genre avec catégories - afficher le dropdown complet
+      dropdown.innerHTML = `
+        <button class="hover:text-accent transition flex items-center" id="dropdown-${genre.id}">
+          <i class="${genre.icon} mr-2"></i> ${genre.name}
+          <i class="fas fa-chevron-down ml-1 text-xs"></i>
+        </button>
+        <div class="categories-panel hidden absolute bg-white shadow rounded mt-2 w-40 z-50" id="panel-${genre.id}">
+          <ul class="flex flex-col">
+            ${genreCategories.map(category => {
+              const categorySubcategories = subcategories.filter(sub => sub.category_id === category.id);
+              
+              if (categorySubcategories.length > 0) {
+                return `
+                  <li class="relative group">
+                    <div class="px-4 py-2 hover:bg-gray-100 cursor-pointer flex justify-between items-center" onclick="filterByCategory(${category.id})">
+                      ${category.name} <i class="fas fa-chevron-right text-xs"></i>
+                    </div>
+                    <ul class="hidden group-hover:block absolute top-0 left-full bg-white shadow rounded w-40 z-50">
+                      ${categorySubcategories.map(sub => `
+                        <li class="px-4 py-2 hover:bg-gray-100 cursor-pointer" onclick="filterBySubcategory(${sub.id})">${sub.name}</li>
+                      `).join('')}
+                    </ul>
+                  </li>
+                `;
+              } else {
+                return `
+                  <li class="px-4 py-2 hover:bg-gray-100 cursor-pointer" onclick="filterByCategory(${category.id})">
+                    ${category.name}
+                  </li>
+                `;
+              }
+            }).join('')}
+          </ul>
+        </div>
+      `;
+    }
+    
+    navContainer.appendChild(dropdown);
+  });
+  
+  // Réactiver les événements dropdown
+  setupDropdownEvents();
+}
+
+function filterByGenre(genreId) {
+  const genre = genres.find(g => g.id === genreId);
+  if (!genre) return;
+  
+  // Obtenir toutes les catégories de ce genre
+  const genreCategories = categories.filter(c => c.genre_id === genreId);
+  const categoryIds = genreCategories.map(c => c.id);
+  
+  // Obtenir toutes les sous-catégories de ces catégories
+  const genreSubcategories = subcategories.filter(s => 
+    categoryIds.includes(s.category_id)
+  );
+  const subcategoryIds = genreSubcategories.map(s => s.id);
+  
+  // Filtrer les produits : soit par category_id, soit par subcategory_id
+  let filteredProducts = products.filter(p => {
+    // Produit appartient directement à une catégorie du genre
+    if (p.category_id && categoryIds.includes(p.category_id)) {
+      return true;
+    }
+    // Ou produit appartient à une sous-catégorie du genre
+    if (p.subcategory_id && subcategoryIds.includes(p.subcategory_id)) {
+      return true;
+    }
+    return false;
+  });
+  
+  renderProducts(filteredProducts);
+  closeAllDropdowns();
+  
+  showNotification(`Filtré par genre: ${genre.name} (${filteredProducts.length} produit(s))`, 'info');
+}
+
+// ========== FILTRAGE PAR CATÉGORIES DYNAMIQUES ==========
+
+function filterByCategory(categoryId) {
+  const category = categories.find(c => c.id === categoryId);
+  if (!category) return;
+  
+  // Obtenir toutes les sous-catégories de cette catégorie
+  const categorySubcategories = subcategories.filter(s => s.category_id === categoryId);
+  const subcategoryIds = categorySubcategories.map(s => s.id);
+  
+  // Filtrer les produits : soit directement par category_id, soit par subcategory_id
+  let filteredProducts = products.filter(p => {
+    // Produit appartient directement à cette catégorie
+    if (p.category_id === categoryId) {
+      return true;
+    }
+    // Ou produit appartient à une sous-catégorie de cette catégorie
+    if (p.subcategory_id && subcategoryIds.includes(p.subcategory_id)) {
+      return true;
+    }
+    return false;
+  });
+  
+  renderProducts(filteredProducts);
+  closeAllDropdowns();
+  
+  showNotification(`Filtré par catégorie: ${category.name} (${filteredProducts.length} produit(s))`, 'info');
+}
+
+
+function filterBySubcategory(subcategoryId) {
+  const subcategory = subcategories.find(s => s.id === subcategoryId);
+  if (!subcategory) return;
+  
+  let filteredProducts = products.filter(p => p.subcategory_id === subcategoryId);
+  renderProducts(filteredProducts);
+  closeAllDropdowns();
+  
+  showNotification(`Filtré par sous-catégorie: ${subcategory.name} (${filteredProducts.length} produit(s))`, 'info');
+}
+
+function closeAllDropdowns() {
+  document.querySelectorAll('.categories-panel').forEach(panel => {
+    panel.classList.add('hidden');
+  });
+}
+
+// ========== ÉVÉNEMENTS DROPDOWN ==========
+
+function setupDropdownEvents() {
+  // Supprimer les anciens listeners pour éviter les doublons
+  document.removeEventListener('click', handleDropdownClick);
+  document.addEventListener('click', handleDropdownClick);
+}
+
+function handleDropdownClick(e) {
+  const dropdown = e.target.closest('.dropdown');
+  if (dropdown) {
+    const button = dropdown.querySelector('button');
+    const panel = dropdown.querySelector('.categories-panel');
+    if (button && button.contains(e.target)) {
+      closeAllDropdowns();
+      panel.classList.toggle('hidden');
+      e.stopPropagation();
+      return;
+    }
+  }
+  
+  if (!e.target.closest('.categories-panel')) {
+    closeAllDropdowns();
+  }
+}
+
+/* ========== CATEGORIES (tree) - VERSION COMPATIBLE ========== */
+let categoryTree = {}; // Garder pour compatibilité avec les anciens filtres
 
 function buildCategoryTree(){
   categoryTree = {};
-  (products || []).forEach(p=>{
-    const c = p.category || 'Autres';
-    const s = p.subcategory || '';
-    if(!categoryTree[c]) categoryTree[c] = new Set();
-    if(s) categoryTree[c].add(s);
+  // Construire l'arbre basé sur les nouvelles catégories
+  categories.forEach(cat => {
+    const catSubs = subcategories.filter(sub => sub.category_id === cat.id);
+    categoryTree[cat.name] = new Set(catSubs.map(sub => sub.name));
   });
+  
+  // Ajouter les produits sans catégorie moderne dans "Autres"
+  (products || []).forEach(p=>{
+    if (!p.category_id && p.category) {
+      const c = p.category || 'Autres';
+      const s = p.subcategory || '';
+      if(!categoryTree[c]) categoryTree[c] = new Set();
+      if(s) categoryTree[c].add(s);
+    }
+  });
+  
   renderCategoryPanel();
   populateFilterSelects();
 }
@@ -91,7 +404,7 @@ function renderCategoryPanel(){
   Object.keys(categoryTree).forEach(cat=>{
     const div = document.createElement('div');
     div.className = 'cat';
-    div.innerHTML = `<strong>${getCategoryName(cat)}</strong>`;
+    div.innerHTML = `<strong>${cat}</strong>`;
     if(categoryTree[cat].size){
       const ul = document.createElement('div'); ul.style.fontSize='13px'; ul.style.marginTop='6px';
       Array.from(categoryTree[cat]).slice(0,20).forEach(sub=>{
@@ -100,10 +413,11 @@ function renderCategoryPanel(){
         subbtn.textContent = sub;
         subbtn.onclick = (e) => {
           e.stopPropagation();
-          document.getElementById('filter-category').value = cat;
-          onCategoryChange();
-          document.getElementById('filter-subcategory').value = sub;
-          applyFilters();
+          // Trouver la sous-catégorie correspondante
+          const subcategory = subcategories.find(s => s.name === sub);
+          if (subcategory) {
+            filterBySubcategory(subcategory.id);
+          }
           panel.classList.add('hidden');
         };
         ul.appendChild(subbtn);
@@ -111,9 +425,11 @@ function renderCategoryPanel(){
       div.appendChild(ul);
     }
     div.onclick = ()=> {
-      document.getElementById('filter-category').value = cat;
-      onCategoryChange();
-      applyFilters();
+      // Trouver la catégorie correspondante
+      const category = categories.find(c => c.name === cat);
+      if (category) {
+        filterByCategory(category.id);
+      }
       panel.classList.add('hidden');
     };
     panel.appendChild(div);
@@ -124,29 +440,82 @@ function populateFilterSelects(){
   const selCat = document.getElementById('filter-category');
   const selSub = document.getElementById('filter-subcategory');
   if(!selCat || !selSub) return;
-  const cats = Object.keys(categoryTree);
-  selCat.innerHTML = '<option value="">Toutes</option>' + cats.map(c=>`<option value="${c}">${getCategoryName(c)}</option>`).join('');
+  
+  // Utiliser les nouvelles catégories
+  selCat.innerHTML = '<option value="">Toutes</option>' + 
+    categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
   selSub.innerHTML = '<option value="">Toutes</option>';
 }
 
 function onCategoryChange(){
-  const cat = document.getElementById('filter-category').value;
+  const catId = document.getElementById('filter-category').value;
   const selSub = document.getElementById('filter-subcategory');
   selSub.innerHTML = '<option value="">Toutes</option>';
-  if(cat && categoryTree[cat]) Array.from(categoryTree[cat]).forEach(s=>{
-    const opt = document.createElement('option'); opt.value = s; opt.textContent = s; selSub.appendChild(opt);
-  });
+  
+  if(catId) {
+    const catSubcategories = subcategories.filter(s => s.category_id == catId);
+    catSubcategories.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.name;
+      selSub.appendChild(opt);
+    });
+  }
   applyFilters();
 }
+function getProductsByGenre(genreId) {
+  const genreCategories = categories.filter(c => c.genre_id === genreId);
+  const categoryIds = genreCategories.map(c => c.id);
+  const genreSubcategories = subcategories.filter(s => categoryIds.includes(s.category_id));
+  const subcategoryIds = genreSubcategories.map(s => s.id);
+  
+  return products.filter(p => {
+    if (p.category_id && categoryIds.includes(p.category_id)) return true;
+    if (p.subcategory_id && subcategoryIds.includes(p.subcategory_id)) return true;
+    return false;
+  });
+}
+function getProductsByCategory(categoryId) {
+  const categorySubcategories = subcategories.filter(s => s.category_id === categoryId);
+  const subcategoryIds = categorySubcategories.map(s => s.id);
+  
+  return products.filter(p => {
+    if (p.category_id === categoryId) return true;
+    if (p.subcategory_id && subcategoryIds.includes(p.subcategory_id)) return true;
+    return false;
+  });
+}
 
-/* ========== LOAD / RENDER PRODUITS ========== */
+/* ========== LOAD / RENDER PRODUITS (MODIFIÉ POUR NOUVELLES CATÉGORIES) ========== */
 async function loadProducts(){
   try {
-    if(!supabaseClient){ products = demoProducts.slice(); buildCategoryTree(); renderProducts(); return; }
-    const { data, error } = await supabaseClient.from('products').select('*').order('created_at',{ascending:false});
-    if(error){ console.error('Erreur chargement produits', error); products = demoProducts.slice(); }
-    else products = (data && data.length>0) ? data : demoProducts.slice();
-  } catch(err){ console.error('loadProducts', err); products = demoProducts.slice(); }
+    if(!supabaseClient){ 
+      products = demoProducts.slice(); 
+      buildCategoryTree(); 
+      renderProducts(); 
+      return; 
+    }
+    
+    // Charger avec les nouvelles relations
+    const { data, error } = await supabaseClient
+      .from('products')
+      .select(`
+        *,
+        categories(name),
+        subcategories(name)
+      `)
+      .order('created_at',{ascending:false});
+      
+    if(error){ 
+      console.error('Erreur chargement produits', error); 
+      products = demoProducts.slice(); 
+    } else {
+      products = (data && data.length>0) ? data : demoProducts.slice();
+    }
+  } catch(err){ 
+    console.error('loadProducts', err); 
+    products = demoProducts.slice(); 
+  }
   buildCategoryTree();
   renderProducts();
   updateAdminProductsTable();
@@ -156,11 +525,27 @@ function renderProducts(list){
   const container = document.getElementById('products-grid');
   if(!container) return;
   const arr = list || products;
-  if(arr.length===0){ container.innerHTML = '<p style="padding:30px;text-align:center;color:#777">Aucun produit trouvé</p>'; document.getElementById('results-info').textContent='0 produit(s)'; return; }
+  if(arr.length===0){ 
+    container.innerHTML = '<p style="padding:30px;text-align:center;color:#777">Aucun produit trouvé</p>'; 
+    document.getElementById('results-info').textContent='0 produit(s)'; 
+    return; 
+  }
+  
   container.innerHTML = arr.map(p=>{
     const hasPromo = p.promo && p.promo > 0;
     const originalPrice = p.price || 0;
     const promoPrice = hasPromo ? calculatePromoPrice(originalPrice, p.promo) : originalPrice;
+    
+    // Obtenir le nom de la catégorie
+    let categoryName = 'Autres';
+    if (p.categories && p.categories.name) {
+      categoryName = p.categories.name;
+    } else if (p.category_id) {
+      const category = categories.find(c => c.id === p.category_id);
+      categoryName = category ? category.name : 'Autres';
+    } else if (p.category) {
+      categoryName = getCategoryName(p.category);
+    }
     
     return `
     <article class="product-card" data-id="${p.id}">
@@ -172,7 +557,7 @@ function renderProducts(list){
         </div>
       </div>
       <div class="product-info">
-        <div class="product-category">${escapeHtml(getCategoryName(p.category))}</div>
+        <div class="product-category">${escapeHtml(categoryName)}</div>
         <div class="product-title">${escapeHtml(p.name)}</div>
         <div class="product-price">
           ${hasPromo ? 
@@ -196,7 +581,7 @@ function renderProducts(list){
   document.getElementById('results-info').textContent = `${arr.length} produit(s)`;
 }
 
-/* ========== FILTRAGE / RECHERCHE / TRI ========== */
+/* ========== FILTRAGE / RECHERCHE / TRI (MODIFIÉ) ========== */
 function applySearch(){
   const q = document.getElementById('search-input').value || '';
   applyFilters({search:q});
@@ -209,11 +594,35 @@ function applyFilters(extra){
   const sort = document.getElementById('filter-sort') ? document.getElementById('filter-sort').value : 'new';
   const search = (extra && extra.search) || (document.getElementById('search-input') ? document.getElementById('search-input').value.trim().toLowerCase() : '');
 
-  if(cat) list = list.filter(p => (p.category||'').toString() === cat);
-  if(sub) list = list.filter(p => (p.subcategory||'').toString() === sub);
-  if(search){
-    list = list.filter(p => (p.name||'').toLowerCase().includes(search) || (p.description||'').toLowerCase().includes(search));
+  // Filtrage par catégorie avec hiérarchie
+  if(cat) {
+    const categoryId = parseInt(cat);
+    const categorySubcategories = subcategories.filter(s => s.category_id === categoryId);
+    const subcategoryIds = categorySubcategories.map(s => s.id);
+    
+    list = list.filter(p => {
+      // Produit appartient directement à cette catégorie
+      if (p.category_id === categoryId) return true;
+      // Ou produit appartient à une sous-catégorie de cette catégorie
+      if (p.subcategory_id && subcategoryIds.includes(p.subcategory_id)) return true;
+      return false;
+    });
   }
+  
+  // Filtrage par sous-catégorie (plus spécifique)
+  if(sub) {
+    list = list.filter(p => p.subcategory_id == sub);
+  }
+  
+  // Filtrage par recherche
+  if(search){
+    list = list.filter(p => 
+      (p.name||'').toLowerCase().includes(search) || 
+      (p.description||'').toLowerCase().includes(search)
+    );
+  }
+  
+  // Tri
   if(sort === 'price_asc') list.sort((a,b)=> (a.price||0)-(b.price||0));
   else if(sort === 'price_desc') list.sort((a,b)=> (b.price||0)-(a.price||0));
   else list.sort((a,b)=> (b.id||0)-(a.id||0));
@@ -260,6 +669,17 @@ function showProductDetail(productId){
   const originalPrice = p.price || 0;
   const promoPrice = hasPromo ? calculatePromoPrice(originalPrice, p.promo) : originalPrice;
 
+  // Obtenir le nom de la catégorie pour l'affichage
+  let categoryDisplay = 'Autres';
+  if (p.categories && p.categories.name) {
+    categoryDisplay = p.categories.name;
+  } else if (p.category_id) {
+    const category = categories.find(c => c.id === p.category_id);
+    categoryDisplay = category ? category.name : 'Autres';
+  } else if (p.category) {
+    categoryDisplay = getCategoryName(p.category);
+  }
+
   // info
   info.innerHTML = `
     <h2>${escapeHtml(p.name)}</h2>
@@ -272,7 +692,7 @@ function showProductDetail(productId){
       }
     </div>
     <div style="color:var(--muted);margin-top:8px">${escapeHtml(p.description || '')}</div>
-    <div style="margin-top:12px"><strong>Catégorie:</strong> ${escapeHtml(getCategoryName(p.category))}${p.subcategory ? ' / ' + escapeHtml(p.subcategory) : ''}</div>
+    <div style="margin-top:12px"><strong>Catégorie:</strong> ${escapeHtml(categoryDisplay)}${p.subcategories && p.subcategories.name ? ' / ' + escapeHtml(p.subcategories.name) : ''}</div>
     <div class="qty-row" style="margin-top:16px;">
       <label>Quantité:</label>
       <button class="qty-btn" onclick="changeDetailQty(-1)">-</button>
@@ -290,7 +710,6 @@ function showProductDetail(productId){
   modal.dataset.qty = 1;
   showModal('product-detail-modal');
 }
-
 
 function detailThumbClick(imgEl){
   document.getElementById('detail-main-img').src = imgEl.src;
@@ -445,7 +864,7 @@ async function handleCheckout(e){
     const orderData = { customer_data: customerData, items: orderItems, subtotal, shipping_fee: shippingFee, total_amount: totalAmount, status: 'pending', order_date: new Date().toISOString() };
 
     if(supabaseClient){
-const { error } = await supabaseClient.from('orders').insert(orderData);
+      const { error } = await supabaseClient.from('orders').insert(orderData);
       if(error) throw error;
       // update stocks
       for(const it of cart){
@@ -461,9 +880,8 @@ const { error } = await supabaseClient.from('orders').insert(orderData);
     cart = [];
     saveCartToStorage(); updateCartCount();
     closeModal('checkout-modal');
-    // Générer un ID pour l'affichage de confirmation
-orderData.id = Date.now() + Math.floor(Math.random()*1000);
-showOrderSuccess(orderData);
+    orderData.id = Date.now() + Math.floor(Math.random()*1000);
+    showOrderSuccess(orderData);
     renderProducts();
   } catch(err){
     console.error('Erreur commande', err);
@@ -491,7 +909,7 @@ async function handleAdminLogin(e){
       if(authError) throw authError;
       const { data: adminData, error: adminError } = await supabaseClient.from('admin_users').select('id,email,role').eq('email', email).maybeSingle();
       if(adminError) throw adminError;
-      if(!adminData){ await supabaseClient.auth.signOut(); throw new Error('Accès refusé : vous nêtes pas administrateur.'); }
+      if(!adminData){ await supabaseClient.auth.signOut(); throw new Error('Accès refusé : vous n\'êtes pas administrateur.'); }
       currentAdmin = { ...adminData };
     } else {
       // Mode demo - accepter n'importe quel email/password
@@ -508,7 +926,6 @@ async function handleAdminLogin(e){
 }
 
 function showLogoutButton(){
-  // Créer un bouton de déconnexion dans le header si pas déjà présent
   const header = document.querySelector('header .flex.items-center.space-x-4');
   if(header && !document.getElementById('logout-btn')){
     const logoutBtn = document.createElement('button');
@@ -544,22 +961,20 @@ async function showAdminDashboard(){
     return; 
   }
 
-  // Masquer le header et les sections client
   hideHeader();
-
-  // Afficher la section admin
   adminSection.classList.remove('hidden');
 
-  // Charger données admin
   await loadOrders();
   await loadAdminStats();
   updateAdminProductsTable();
+  
+  // NOUVEAU: Afficher la gestion des catégories
+  renderAdminCategorySection();
 }
 
 /* ========== ADMIN HELPERS ========== */
 async function loadOrders(){
   if(!supabaseClient) { 
-    // Mode demo avec quelques commandes fictives
     orders = [
       {
         id: 1,
@@ -648,6 +1063,15 @@ function getStatusClass(status){
     'delivered': 'bg-green-100 text-green-800'
   };
   return classes[status] || 'bg-gray-100 text-gray-800';
+}
+
+function getStatusText(status){
+  const map = {
+    'pending':'En attente',
+    'confirmed':'Confirmé',
+    'delivered':'Livré'
+  };
+  return map[status] || status;
 }
 
 function viewOrderDetails(orderId){
@@ -782,6 +1206,17 @@ function updateAdminProductsTable(){
             const originalPrice = p.price || 0;
             const promoPrice = hasPromo ? calculatePromoPrice(originalPrice, p.promo) : originalPrice;
             
+            // Obtenir le nom de la catégorie
+            let categoryName = 'Autres';
+            if (p.categories && p.categories.name) {
+              categoryName = p.categories.name;
+            } else if (p.category_id) {
+              const category = categories.find(c => c.id === p.category_id);
+              categoryName = category ? category.name : 'Autres';
+            } else if (p.category) {
+              categoryName = getCategoryName(p.category);
+            }
+            
             return `
             <tr class="border-b hover:bg-gray-50">
               <td class="px-4 py-3 font-medium">${p.id}</td>
@@ -810,7 +1245,7 @@ function updateAdminProductsTable(){
                   ${p.stock||0}
                 </span>
               </td>
-              <td class="px-4 py-3">${escapeHtml(getCategoryName(p.category))}</td>
+              <td class="px-4 py-3">${escapeHtml(categoryName)}</td>
               <td class="px-4 py-3">
                 <div class="flex items-center gap-2">
                   <button class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm" onclick="editProduct(${p.id})">
@@ -830,7 +1265,498 @@ function updateAdminProductsTable(){
   `;
 }
 
-/* ========== PRODUCT MANAGEMENT ========== */
+// ========== GESTION ADMIN DES CATÉGORIES ==========
+
+function renderAdminCategorySection() {
+  const adminSection = document.getElementById('admin-section');
+  if (!adminSection) return;
+  
+  // Vérifier si la section existe déjà
+  if (document.getElementById('category-management-section')) return;
+  
+  // Ajouter la section gestion des catégories après les stats
+  const statsSection = adminSection.querySelector('.grid.grid-cols-1.md\\:grid-cols-2.lg\\:grid-cols-4');
+  if (!statsSection) return;
+  
+  const categorySection = document.createElement('div');
+  categorySection.id = 'category-management-section';
+  categorySection.className = 'bg-white rounded-lg shadow p-6 mb-6';
+  categorySection.innerHTML = `
+    <div class="flex justify-between items-center mb-6">
+      <h3 class="text-xl font-serif font-bold text-accent">
+        <i class="fas fa-tags mr-2"></i> Gestion des Catégories
+      </h3>
+      <div class="flex gap-2">
+        <button class="bg-accent hover:bg-accent-dark text-white px-4 py-2 rounded font-medium transition" onclick="showAddGenre()">
+          <i class="fas fa-plus mr-2"></i> Genre
+        </button>
+        <button class="bg-accent hover:bg-accent-dark text-white px-4 py-2 rounded font-medium transition" onclick="showAddCategory()">
+          <i class="fas fa-plus mr-2"></i> Catégorie
+        </button>
+        <button class="bg-accent hover:bg-accent-dark text-white px-4 py-2 rounded font-medium transition" onclick="showAddSubcategory()">
+          <i class="fas fa-plus mr-2"></i> Sous-catégorie
+        </button>
+      </div>
+    </div>
+    
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div>
+        <h4 class="font-semibold mb-3">Genres</h4>
+        <div id="genres-list" class="space-y-2"></div>
+      </div>
+      <div>
+        <h4 class="font-semibold mb-3">Catégories</h4>
+        <div id="categories-list" class="space-y-2"></div>
+      </div>
+      <div>
+        <h4 class="font-semibold mb-3">Sous-catégories</h4>
+        <div id="subcategories-list" class="space-y-2"></div>
+      </div>
+    </div>
+  `;
+  
+  statsSection.parentNode.insertBefore(categorySection, statsSection.nextSibling);
+  
+  renderCategoriesLists();
+}
+
+function renderCategoriesLists() {
+  // Genres
+  const genresList = document.getElementById('genres-list');
+  if (genresList) {
+    genresList.innerHTML = genres.map(genre => `
+      <div class="flex items-center justify-between p-3 bg-beige-light rounded">
+        <div class="flex items-center">
+          <i class="${genre.icon || 'fas fa-tag'} mr-2"></i>
+          <span class="font-medium">${genre.name}</span>
+        </div>
+        <div class="flex gap-2">
+          <button class="text-blue-600 hover:text-blue-800" onclick="editGenre(${genre.id})">
+            <i class="fas fa-edit"></i>
+          </button>
+          <button class="text-red-600 hover:text-red-800" onclick="deleteGenre(${genre.id})">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      </div>
+    `).join('');
+  }
+  
+  // Catégories
+  const categoriesList = document.getElementById('categories-list');
+  if (categoriesList) {
+    categoriesList.innerHTML = categories.map(category => {
+      const genre = genres.find(g => g.id === category.genre_id);
+      return `
+        <div class="flex items-center justify-between p-3 bg-beige-light rounded">
+          <div>
+            <div class="font-medium">${category.name}</div>
+            <div class="text-sm text-gray-600">${genre ? genre.name : 'N/A'}</div>
+          </div>
+          <div class="flex gap-2">
+            <button class="text-blue-600 hover:text-blue-800" onclick="editCategory(${category.id})">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button class="text-red-600 hover:text-red-800" onclick="deleteCategory(${category.id})">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+  
+  // Sous-catégories
+  const subcategoriesList = document.getElementById('subcategories-list');
+  if (subcategoriesList) {
+    subcategoriesList.innerHTML = subcategories.map(subcategory => {
+      const category = categories.find(c => c.id === subcategory.category_id);
+      return `
+        <div class="flex items-center justify-between p-3 bg-beige-light rounded">
+          <div>
+            <div class="font-medium">${subcategory.name}</div>
+            <div class="text-sm text-gray-600">${category ? category.name : 'N/A'}</div>
+          </div>
+          <div class="flex gap-2">
+            <button class="text-blue-600 hover:text-blue-800" onclick="editSubcategory(${subcategory.id})">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button class="text-red-600 hover:text-red-800" onclick="deleteSubcategory(${subcategory.id})">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+}
+
+// ========== MODAL FUNCTIONS POUR CATÉGORIES ==========
+
+function showAddGenre() {
+  editingCategory = null;
+  const modal = createCategoryModal('genre');
+  document.body.appendChild(modal);
+}
+
+function showAddCategory() {
+  editingCategory = null;
+  const modal = createCategoryModal('category');
+  document.body.appendChild(modal);
+}
+
+function showAddSubcategory() {
+  editingCategory = null;
+  const modal = createCategoryModal('subcategory');
+  document.body.appendChild(modal);
+}
+
+function editGenre(id) {
+  const genre = genres.find(g => g.id === id);
+  if (!genre) return;
+  editingCategory = { type: 'genre', data: genre };
+  const modal = createCategoryModal('genre', genre);
+  document.body.appendChild(modal);
+}
+
+function editCategory(id) {
+  const category = categories.find(c => c.id === id);
+  if (!category) return;
+  editingCategory = { type: 'category', data: category };
+  const modal = createCategoryModal('category', category);
+  document.body.appendChild(modal);
+}
+
+function editSubcategory(id) {
+  const subcategory = subcategories.find(s => s.id === id);
+  if (!subcategory) return;
+  editingCategory = { type: 'subcategory', data: subcategory };
+  const modal = createCategoryModal('subcategory', subcategory);
+  document.body.appendChild(modal);
+}
+
+async function deleteGenre(id) {
+  if (!confirm('Êtes-vous sûr de vouloir supprimer ce genre ?')) return;
+  
+  try {
+    if (supabaseClient) {
+      const { error } = await supabaseClient.from('genres').delete().eq('id', id);
+      if (error) throw error;
+    }
+    
+    genres = genres.filter(g => g.id !== id);
+    renderDynamicHeader();
+    renderCategoriesLists();
+    showNotification('Genre supprimé avec succès!', 'success');
+  } catch (err) {
+    console.error('deleteGenre', err);
+    showNotification('Erreur: ' + (err.message || err), 'error');
+  }
+}
+
+async function deleteCategory(id) {
+  if (!confirm('Êtes-vous sûr de vouloir supprimer cette catégorie ?')) return;
+  
+  try {
+    if (supabaseClient) {
+      const { error } = await supabaseClient.from('categories').delete().eq('id', id);
+      if (error) throw error;
+    }
+    
+    categories = categories.filter(c => c.id !== id);
+    renderDynamicHeader();
+    renderCategoriesLists();
+    updateProductFormCategories();
+    showNotification('Catégorie supprimée avec succès!', 'success');
+  } catch (err) {
+    console.error('deleteCategory', err);
+    showNotification('Erreur: ' + (err.message || err), 'error');
+  }
+}
+
+async function deleteSubcategory(id) {
+  if (!confirm('Êtes-vous sûr de vouloir supprimer cette sous-catégorie ?')) return;
+  
+  try {
+    if (supabaseClient) {
+      const { error } = await supabaseClient.from('subcategories').delete().eq('id', id);
+      if (error) throw error;
+    }
+    
+    subcategories = subcategories.filter(s => s.id !== id);
+    renderCategoriesLists();
+    showNotification('Sous-catégorie supprimée avec succès!', 'success');
+  } catch (err) {
+    console.error('deleteSubcategory', err);
+    showNotification('Erreur: ' + (err.message || err), 'error');
+  }
+}
+
+function createCategoryModal(type, existingData = null) {
+  const modal = document.createElement('div');
+  modal.className = 'modal active';
+  
+  let title, fields, submitText;
+  const isEditing = !!existingData;
+  
+  switch (type) {
+    case 'genre':
+      title = isEditing ? 'Modifier le Genre' : 'Ajouter un Genre';
+      fields = `
+        <div class="mb-4">
+          <label class="block text-gray-700 mb-2">Nom *</label>
+          <input type="text" id="modal-name" required class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent" value="${existingData ? existingData.name : ''}">
+        </div>
+        <div class="mb-4">
+          <label class="block text-gray-700 mb-2">Icône FontAwesome</label>
+          <input type="text" id="modal-icon" placeholder="fas fa-venus" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent" value="${existingData ? existingData.icon || '' : ''}">
+        </div>
+        <div class="mb-4">
+          <label class="block text-gray-700 mb-2">Ordre d'affichage</label>
+          <input type="number" id="modal-order" min="0" value="${existingData ? existingData.display_order || 0 : 0}" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+        </div>
+      `;
+      submitText = isEditing ? 'Modifier le genre' : 'Ajouter le genre';
+      break;
+      
+    case 'category':
+      title = isEditing ? 'Modifier la Catégorie' : 'Ajouter une Catégorie';
+      fields = `
+        <div class="mb-4">
+          <label class="block text-gray-700 mb-2">Nom *</label>
+          <input type="text" id="modal-name" required class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent" value="${existingData ? existingData.name : ''}">
+        </div>
+        <div class="mb-4">
+          <label class="block text-gray-700 mb-2">Slug</label>
+          <input type="text" id="modal-slug" placeholder="Ex: summer-vibes" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent" value="${existingData ? existingData.slug || '' : ''}">
+        </div>
+        <div class="mb-4">
+          <label class="block text-gray-700 mb-2">Genre *</label>
+          <select id="modal-genre" required class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+            <option value="">Choisir un genre</option>
+            ${genres.map(g => `<option value="${g.id}" ${existingData && existingData.genre_id === g.id ? 'selected' : ''}>${g.name}</option>`).join('')}
+          </select>
+        </div>
+        <div class="mb-4">
+          <label class="block text-gray-700 mb-2">Ordre d'affichage</label>
+          <input type="number" id="modal-order" min="0" value="${existingData ? existingData.display_order || 0 : 0}" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+        </div>
+      `;
+      submitText = isEditing ? 'Modifier la catégorie' : 'Ajouter la catégorie';
+      break;
+      
+    case 'subcategory':
+      title = isEditing ? 'Modifier la Sous-catégorie' : 'Ajouter une Sous-catégorie';
+      fields = `
+        <div class="mb-4">
+          <label class="block text-gray-700 mb-2">Nom *</label>
+          <input type="text" id="modal-name" required class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent" value="${existingData ? existingData.name : ''}">
+        </div>
+        <div class="mb-4">
+          <label class="block text-gray-700 mb-2">Slug</label>
+          <input type="text" id="modal-slug" placeholder="Ex: mini-dresses" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent" value="${existingData ? existingData.slug || '' : ''}">
+        </div>
+        <div class="mb-4">
+          <label class="block text-gray-700 mb-2">Catégorie parente *</label>
+          <select id="modal-category" required class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+            <option value="">Choisir une catégorie</option>
+            ${categories.map(c => `<option value="${c.id}" ${existingData && existingData.category_id === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
+          </select>
+        </div>
+        <div class="mb-4">
+          <label class="block text-gray-700 mb-2">Ordre d'affichage</label>
+          <input type="number" id="modal-order" min="0" value="${existingData ? existingData.display_order || 0 : 0}" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+        </div>
+      `;
+      submitText = isEditing ? 'Modifier la sous-catégorie' : 'Ajouter la sous-catégorie';
+      break;
+  }
+  
+  modal.innerHTML = `
+    <div class="modal-content max-w-md">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-xl font-serif font-bold text-accent">${title}</h2>
+        <button class="text-gray-500 hover:text-gray-700 text-2xl" onclick="this.closest('.modal').remove()">&times;</button>
+      </div>
+      <form onsubmit="handleCategorySubmit(event, '${type}')">
+        ${fields}
+        <button type="submit" class="bg-accent hover:bg-accent-dark text-white w-full py-3 rounded font-medium transition">
+          ${submitText}
+        </button>
+      </form>
+    </div>
+  `;
+  
+  // Auto-generate slug from name si ce n'est pas une édition
+  if (!isEditing) {
+    const nameInput = modal.querySelector('#modal-name');
+    const slugInput = modal.querySelector('#modal-slug');
+    if (nameInput && slugInput) {
+      nameInput.addEventListener('input', (e) => {
+        const slug = e.target.value.toLowerCase()
+          .replace(/[^a-z0-9\s-]/g, '')
+          .replace(/\s+/g, '-')
+          .replace(/-+/g, '-');
+        slugInput.value = slug;
+      });
+    }
+  }
+  
+  return modal;
+}
+
+async function handleCategorySubmit(event, type) {
+  event.preventDefault();
+  
+  const name = document.getElementById('modal-name').value.trim();
+  const order = parseInt(document.getElementById('modal-order').value) || 0;
+  
+  if (!name) {
+    showNotification('Le nom est requis', 'error');
+    return;
+  }
+  
+  try {
+    let data;
+    const isEditing = editingCategory && editingCategory.data;
+    
+    switch (type) {
+      case 'genre':
+        const icon = document.getElementById('modal-icon').value.trim();
+        data = { name, icon, display_order: order, is_active: true };
+        
+        if (isEditing) {
+          if (supabaseClient) {
+            const { error } = await supabaseClient
+              .from('genres')
+              .update(data)
+              .eq('id', editingCategory.data.id);
+            if (error) throw error;
+          }
+          const index = genres.findIndex(g => g.id === editingCategory.data.id);
+          if (index !== -1) genres[index] = { ...editingCategory.data, ...data };
+        } else {
+          if (supabaseClient) {
+            const { data: result, error } = await supabaseClient
+              .from('genres')
+              .insert(data)
+              .select();
+            if (error) throw error;
+            genres.push(result[0]);
+          } else {
+            data.id = Date.now();
+            genres.push(data);
+          }
+        }
+        break;
+        
+      case 'category':
+        const slug = document.getElementById('modal-slug').value.trim();
+        const genreId = parseInt(document.getElementById('modal-genre').value);
+        
+        if (!genreId) {
+          showNotification('Veuillez sélectionner un genre', 'error');
+          return;
+        }
+        
+        data = { name, slug, genre_id: genreId, display_order: order, is_active: true };
+        
+        if (isEditing) {
+          if (supabaseClient) {
+            const { error } = await supabaseClient
+              .from('categories')
+              .update(data)
+              .eq('id', editingCategory.data.id);
+            if (error) throw error;
+          }
+          const index = categories.findIndex(c => c.id === editingCategory.data.id);
+          if (index !== -1) categories[index] = { ...editingCategory.data, ...data };
+        } else {
+          if (supabaseClient) {
+            const { data: result, error } = await supabaseClient
+              .from('categories')
+              .insert(data)
+              .select('*, genres(name)');
+            if (error) throw error;
+            categories.push(result[0]);
+          } else {
+            data.id = Date.now();
+            categories.push(data);
+          }
+        }
+        break;
+        
+      case 'subcategory':
+        const subSlug = document.getElementById('modal-slug').value.trim();
+        const categoryId = parseInt(document.getElementById('modal-category').value);
+        
+        if (!categoryId) {
+          showNotification('Veuillez sélectionner une catégorie parente', 'error');
+          return;
+        }
+        
+        data = { name, slug: subSlug, category_id: categoryId, display_order: order, is_active: true };
+        
+        if (isEditing) {
+          if (supabaseClient) {
+            const { error } = await supabaseClient
+              .from('subcategories')
+              .update(data)
+              .eq('id', editingCategory.data.id);
+            if (error) throw error;
+          }
+          const index = subcategories.findIndex(s => s.id === editingCategory.data.id);
+          if (index !== -1) subcategories[index] = { ...editingCategory.data, ...data };
+        } else {
+          if (supabaseClient) {
+            const { data: result, error } = await supabaseClient
+              .from('subcategories')
+              .insert(data)
+              .select('*, categories(name, genres(name))');
+            if (error) throw error;
+            subcategories.push(result[0]);
+          } else {
+            data.id = Date.now();
+            subcategories.push(data);
+          }
+        }
+        break;
+    }
+    
+    // Fermer le modal
+    event.target.closest('.modal').remove();
+    
+    // Rafraîchir l'affichage
+    renderDynamicHeader();
+    renderCategoriesLists();
+    updateProductFormCategories();
+    
+    const action = isEditing ? 'modifié' : 'ajouté';
+    showNotification(`${type} ${action} avec succès!`, 'success');
+  } catch (err) {
+    console.error('Erreur catégorie:', err);
+    showNotification('Erreur: ' + (err.message || err), 'error');
+  }
+}
+
+// ========== MISE À JOUR DES FORMULAIRES PRODUITS ==========
+
+function updateProductFormCategories() {
+  const categorySelect = document.getElementById('product-category');
+  if (categorySelect) {
+    const currentValue = categorySelect.value;
+    categorySelect.innerHTML = '<option value="">Choisir une catégorie</option>' +
+      categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    if (currentValue) categorySelect.value = currentValue;
+  }
+  
+  const subcategorySelect = document.getElementById('product-subcategory');
+  if (subcategorySelect) {
+    subcategorySelect.innerHTML = '<option value="">Choisir une sous-catégorie</option>';
+  }
+}
+
+/* ========== PRODUCT MANAGEMENT (MODIFIÉ POUR NOUVELLES CATÉGORIES) ========== */
 function editProduct(id){ 
   const product = products.find(p => p.id === id);
   if(!product) {
@@ -844,14 +1770,23 @@ function editProduct(id){
   document.getElementById('product-name').value = product.name || '';
   document.getElementById('product-price').value = product.price || '';
   document.getElementById('product-description').value = product.description || '';
-  document.getElementById('product-category').value = product.category || '';
   document.getElementById('product-stock').value = product.stock || 0;
   document.getElementById('product-image').value = product.image_url || '';
-  document.getElementById('product-promo').value = product.promo || 0; // NOUVEAU
+  document.getElementById('product-promo').value = product.promo || 0;
   
-  // Ajouter une sous-catégorie si elle existe
-  const subcategoryField = document.getElementById('product-subcategory');
-  if(subcategoryField) subcategoryField.value = product.subcategory || '';
+  // Utiliser category_id au lieu de category
+  const categorySelect = document.getElementById('product-category');
+  if (categorySelect) {
+    categorySelect.value = product.category_id || '';
+    // Déclencher le changement pour charger les sous-catégories
+    onProductCategoryChange();
+  }
+  
+  // Définir la sous-catégorie
+  const subcategorySelect = document.getElementById('product-subcategory');
+  if (subcategorySelect && product.subcategory_id) {
+    subcategorySelect.value = product.subcategory_id;
+  }
   
   // Changer le titre du modal
   const modalTitle = document.querySelector('#product-modal .text-xl');
@@ -862,6 +1797,25 @@ function editProduct(id){
   if(submitBtn) submitBtn.innerHTML = '<i class="fas fa-save mr-2"></i> Enregistrer les modifications';
   
   showModal('product-modal');
+}
+
+function onProductCategoryChange() {
+  const categoryId = document.getElementById('product-category').value;
+  const subcategorySelect = document.getElementById('product-subcategory');
+  
+  if (!subcategorySelect) return;
+  
+  subcategorySelect.innerHTML = '<option value="">Choisir une sous-catégorie</option>';
+  
+  if (categoryId) {
+    const categorySubcategories = subcategories.filter(s => s.category_id == categoryId);
+    categorySubcategories.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.name;
+      subcategorySelect.appendChild(opt);
+    });
+  }
 }
 
 async function deleteProduct(id){
@@ -886,18 +1840,19 @@ async function deleteProduct(id){
   }
 }
 
-/* add/edit product (admin) */
+/* add/edit product (modifié pour nouvelles catégories) */
 async function handleAddProduct(e){
   e.preventDefault();
   const name = document.getElementById('product-name').value.trim();
   const price = parseFloat(document.getElementById('product-price').value);
   const desc = document.getElementById('product-description').value.trim();
-  const category = document.getElementById('product-category').value;
+  const categoryId = parseInt(document.getElementById('product-category').value) || null;
+  const subcategoryId = parseInt(document.getElementById('product-subcategory').value) || null;
   const stock = parseInt(document.getElementById('product-stock').value,10);
   const image = document.getElementById('product-image').value.trim();
-  const promo = parseInt(document.getElementById('product-promo').value,10) || 0; // NOUVEAU
+  const promo = parseInt(document.getElementById('product-promo').value,10) || 0;
   
-  if(!name||isNaN(price)||!category) { 
+  if(!name || isNaN(price)) { 
     showNotification('Veuillez remplir tous les champs obligatoires','error'); 
     return; 
   }
@@ -911,9 +1866,10 @@ async function handleAddProduct(e){
     name, 
     price, 
     description: desc, 
-    category, 
+    category_id: categoryId,
+    subcategory_id: subcategoryId,
     stock: isNaN(stock) ? 0 : stock, 
-    promo: promo, // NOUVEAU
+    promo: promo,
     image_url: image || 'https://via.placeholder.com/600x800?text=Image', 
     created_at: new Date().toISOString() 
   };
@@ -984,10 +1940,14 @@ function resetProductForm(){
   const successEl = document.getElementById('product-success');
   if(errorEl) errorEl.classList.add('hidden');
   if(successEl) successEl.classList.add('hidden');
+  
+  // Reset des selects de catégories
+  updateProductFormCategories();
 }
 
-/* ========== HELPERS (category names) ========== */
+/* ========== HELPERS (category names) - MODIFIÉ ========== */
 function getCategoryName(category){
+  // Compatibility avec l'ancien système
   const map = {
     'robes':'Robes',
     'tops':'Tops & Blouses',
@@ -999,18 +1959,8 @@ function getCategoryName(category){
   return map[category] || category || 'Autres';
 }
 
-function getStatusText(status){
-  const map = {
-    'pending':'En attente',
-    'confirmed':'Confirmé',
-    'delivered':'Livré'
-  };
-  return map[status] || status;
-}
-
 /* ========== NAVIGATION FUNCTIONS ========== */
 function showHome(){ 
-  // Masquer la section admin et afficher les sections normales
   const adminSection = document.getElementById('admin-section');
   if(adminSection) adminSection.classList.add('hidden');
   
@@ -1045,16 +1995,30 @@ function showAddProduct(){
   showModal('product-modal'); 
 }
 
-/* ========== SETUP & INIT ========== */
+/* ========== INITIALISATION DES CATÉGORIES ========== */
+async function initCategories() {
+  await loadGenres();
+  await loadCategories();
+  await loadSubcategories();
+  renderDynamicHeader();
+  updateProductFormCategories();
+}
+
+/* ========== SETUP & INIT (MODIFIÉ) ========== */
 async function init(){
   try {
     console.log('Init...');
     if(window.supabase){
       supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
       console.log('Supabase initialisé');
+      
+      // Charger les catégories en premier
+      await initCategories();
       await loadProducts();
     } else {
       console.warn('Supabase non disponible, mode demo');
+      // Initialiser les catégories demo
+      await initCategories();
       products = demoProducts.slice();
       buildCategoryTree();
       renderProducts();
@@ -1065,6 +2029,8 @@ async function init(){
     updateCartCount();
   } catch(err){ 
     console.error('init', err); 
+    // Fallback complet
+    await initCategories();
     products = demoProducts.slice(); 
     buildCategoryTree(); 
     renderProducts(); 
@@ -1079,6 +2045,12 @@ function setupEventListeners(){
   if(adminLoginForm) adminLoginForm.addEventListener('submit', handleAdminLogin);
   if(addProductForm) addProductForm.addEventListener('submit', handleAddProduct);
   if(checkoutForm) checkoutForm.addEventListener('submit', handleCheckout);
+  
+  // Event listener pour le changement de catégorie dans le formulaire produit
+  const productCategorySelect = document.getElementById('product-category');
+  if(productCategorySelect) {
+    productCategorySelect.addEventListener('change', onProductCategoryChange);
+  }
   
   // modals click outside close
   document.querySelectorAll('.modal').forEach(modal=>{

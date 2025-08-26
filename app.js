@@ -13,6 +13,7 @@ let genres = [];
 let categories = [];
 let subcategories = [];
 let editingCategory = null;
+let uploadedImages = {};
 
 /* Demo products (used if Supabase absent) */
 const demoProducts = [
@@ -27,6 +28,88 @@ const demoProducts = [
 function calculatePromoPrice(originalPrice, promoPercent) {
   if (!promoPercent || promoPercent <= 0) return originalPrice;
   return originalPrice * (1 - promoPercent / 100);
+}
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+async function handleImageUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  // Vérifier le type de fichier
+  if (!file.type.startsWith('image/')) {
+    showNotification('Veuillez sélectionner un fichier image', 'error');
+    return;
+  }
+
+  // Vérifier la taille (max 5MB)
+  if (file.size > 5 * 1024 * 1024) {
+    showNotification('L\'image est trop volumineuse (max 5MB)', 'error');
+    return;
+  }
+
+  try {
+    // Afficher un indicateur de chargement
+    const imagePreview = document.getElementById('image-preview');
+    const uploadButton = document.getElementById('upload-button');
+    
+    if (imagePreview) imagePreview.innerHTML = '<div class="loading">Chargement...</div>';
+    if (uploadButton) uploadButton.disabled = true;
+
+    // Convertir en base64
+    const base64Image = await fileToBase64(file);
+    
+    // Stocker l'image
+    const imageId = Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    uploadedImages[imageId] = base64Image;
+    
+    // Mettre à jour l'aperçu
+    if (imagePreview) {
+      imagePreview.innerHTML = `
+        <img src="${base64Image}" alt="Aperçu" style="max-width: 200px; max-height: 200px; object-fit: cover; border-radius: 8px;">
+      `;
+    }
+    
+    // Stocker l'ID de l'image dans un champ caché
+    document.getElementById('product-image-id').value = imageId;
+    
+    showNotification('Image uploadée avec succès!', 'success');
+  } catch (error) {
+    console.error('Erreur upload:', error);
+    showNotification('Erreur lors de l\'upload de l\'image', 'error');
+  } finally {
+    if (uploadButton) uploadButton.disabled = false;
+  }
+}
+function getImageUrl(product) {
+  if (product.image_id && uploadedImages[product.image_id]) {
+    return uploadedImages[product.image_id];
+  }
+  return product.image_url || 'https://via.placeholder.com/600x800?text=Image';
+}
+function saveImagesToStorage() {
+  try {
+    localStorage.setItem('elyna_uploaded_images', JSON.stringify(uploadedImages));
+  } catch (e) {
+    console.warn('Impossible de sauvegarder les images:', e);
+  }
+}
+
+function loadImagesFromStorage() {
+  try {
+    const stored = localStorage.getItem('elyna_uploaded_images');
+    if (stored) {
+      uploadedImages = JSON.parse(stored);
+    }
+  } catch (e) {
+    console.warn('Impossible de charger les images:', e);
+    uploadedImages = {};
+  }
 }
 
 /* ========== UTILITAIRES ========== */
@@ -551,7 +634,7 @@ function renderProducts(list){
     <article class="product-card" data-id="${p.id}">
       <div class="product-image-container" onclick="showProductDetail(${p.id})">
         ${hasPromo ? `<div class="promo-badge">-${p.promo}%</div>` : ''}
-        <img class="product-image" src="${p.image_url}" alt="${escapeHtml(p.name)}" onerror="this.src='https://via.placeholder.com/600x800?text=Image'"/>
+        <img class="product-image" src="${getImageUrl(p)}" alt="${escapeHtml(p.name)}
         <div class="product-overlay">
           <button class="quick-view-btn" onclick="(function(e){e.stopPropagation(); showProductDetail(${p.id});})(event)"><i class="fas fa-eye"></i> Aperçu</button>
         </div>
@@ -654,7 +737,8 @@ function showProductDetail(productId){
 
   // create images array
   const imgs = [];
-  if(p.image_url) imgs.push(p.image_url);
+  const mainImageUrl = getImageUrl(p);
+ if(mainImageUrl) imgs.push(mainImageUrl);
   if(!p.image_url.includes('?')) imgs.push(p.image_url + '?auto=format&w=900');
   imgs.push(p.image_url + '&q=60');
 
@@ -796,7 +880,7 @@ function renderCart(){
     total += itemTotal;
     return `
       <div class="cart-item flex items-center gap-4 p-4 border-b">
-        <img src="${p.image_url}" alt="${escapeHtml(p.name)}" class="w-16 h-16 object-cover rounded">
+        <img src="${getImageUrl(p)}" alt="${escapeHtml(p.name)}"class="w-16 h-16 object-cover rounded">
         <div style="flex:1">
           <div class="font-semibold">${escapeHtml(p.name)}</div>
           <div class="text-gray-600">${formatPrice(p.price)} DT</div>
@@ -1221,7 +1305,7 @@ function updateAdminProductsTable(){
             <tr class="border-b hover:bg-gray-50">
               <td class="px-4 py-3 font-medium">${p.id}</td>
               <td class="px-4 py-3">
-                <img src="${p.image_url}" alt="${escapeHtml(p.name)}" class="w-12 h-12 object-cover rounded" onerror="this.src='https://via.placeholder.com/48x48?text=?'">
+                <img src="${getImageUrl(p)}" alt="${escapeHtml(p.name)}" class="w-12 h-12 object-cover rounded" onerror="this.src='https://via.placeholder.com/48x48?text=?'">
               </td>
               <td class="px-4 py-3">
                 <div class="font-medium">${escapeHtml(p.name)}</div>
@@ -1771,8 +1855,19 @@ function editProduct(id){
   document.getElementById('product-price').value = product.price || '';
   document.getElementById('product-description').value = product.description || '';
   document.getElementById('product-stock').value = product.stock || 0;
-  document.getElementById('product-image').value = product.image_url || '';
+  //document.getElementById('product-image').value = product.image_url || '';
   document.getElementById('product-promo').value = product.promo || 0;
+  if (product.image_id && uploadedImages[product.image_id]) {
+  document.getElementById('product-image-id').value = product.image_id;
+  const imagePreview = document.getElementById('image-preview');
+  if (imagePreview) {
+    imagePreview.innerHTML = `<img src="${uploadedImages[product.image_id]}" alt="Aperçu" style="max-width: 200px; max-height: 200px; object-fit: cover; border-radius: 8px;">`;
+  }
+} else {
+  document.getElementById('product-image-id').value = '';
+  const imagePreview = document.getElementById('image-preview');
+  if (imagePreview) imagePreview.innerHTML = '';
+}
   
   // Utiliser category_id au lieu de category
   const categorySelect = document.getElementById('product-category');
@@ -1849,7 +1944,7 @@ async function handleAddProduct(e){
   const categoryId = parseInt(document.getElementById('product-category').value) || null;
   const subcategoryId = parseInt(document.getElementById('product-subcategory').value) || null;
   const stock = parseInt(document.getElementById('product-stock').value,10);
-  const image = document.getElementById('product-image').value.trim();
+  const imageId = document.getElementById('product-image-id').value.trim();
   const promo = parseInt(document.getElementById('product-promo').value,10) || 0;
   
   if(!name || isNaN(price)) { 
@@ -1870,7 +1965,8 @@ async function handleAddProduct(e){
     subcategory_id: subcategoryId,
     stock: isNaN(stock) ? 0 : stock, 
     promo: promo,
-    image_url: image || 'https://via.placeholder.com/600x800?text=Image', 
+     image_id: imageId || null,
+  image_url: imageId ? null : 'https://via.placeholder.com/600x800?text=Image', 
     created_at: new Date().toISOString() 
   };
 
@@ -1907,7 +2003,7 @@ async function handleAddProduct(e){
       }
       showNotification('Produit ajouté avec succès!','success');
     }
-    
+    saveImagesToStorage();
     buildCategoryTree(); 
     renderProducts(); 
     updateAdminProductsTable();
@@ -1940,6 +2036,9 @@ function resetProductForm(){
   const successEl = document.getElementById('product-success');
   if(errorEl) errorEl.classList.add('hidden');
   if(successEl) successEl.classList.add('hidden');
+  document.getElementById('product-image-id').value = '';
+const imagePreview = document.getElementById('image-preview');
+if (imagePreview) imagePreview.innerHTML = '';
   
   // Reset des selects de catégories
   updateProductFormCategories();
@@ -2026,6 +2125,7 @@ async function init(){
 
     setupEventListeners();
     loadCartFromStorage();
+    loadImagesFromStorage();
     updateCartCount();
   } catch(err){ 
     console.error('init', err); 

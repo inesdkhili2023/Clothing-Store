@@ -61,36 +61,116 @@ async function handleImageUpload(event) {
     if (imagePreview) imagePreview.innerHTML = '<div class="loading">Chargement...</div>';
     if (uploadButton) uploadButton.disabled = true;
 
-    // Convertir en base64
-    const base64Image = await fileToBase64(file);
-    
-    // Stocker l'image
-    const imageId = Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    uploadedImages[imageId] = base64Image;
-    
-    // Mettre à jour l'aperçu
-    if (imagePreview) {
-      imagePreview.innerHTML = `
-        <img src="${base64Image}" alt="Aperçu" style="max-width: 200px; max-height: 200px; object-fit: cover; border-radius: 8px;">
-      `;
+    if (supabaseClient) {
+      // VRAIE SOLUTION: Upload vers Supabase Storage
+      const fileName = `product_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${file.name.split('.').pop()}`;
+      
+      // Upload vers Supabase Storage
+      const { data, error } = await supabaseClient.storage
+        .from('product-images')
+        .upload(fileName, file);
+
+      if (error) {
+        console.error('Erreur upload Supabase:', error);
+        throw new Error('Erreur lors de l\'upload: ' + error.message);
+      }
+
+      // Obtenir l'URL publique
+      const { data: { publicUrl } } = supabaseClient.storage
+        .from('product-images')
+        .getPublicUrl(fileName);
+
+      // Mettre à jour l'aperçu
+      if (imagePreview) {
+        imagePreview.innerHTML = `
+          <img src="${publicUrl}" alt="Aperçu" style="max-width: 200px; max-height: 200px; object-fit: cover; border-radius: 8px;">
+        `;
+      }
+      
+      // Stocker l'URL de l'image directement
+      document.getElementById('product-image').value = publicUrl;
+      document.getElementById('product-image-id').value = '';
+      
+      showNotification('Image uploadée avec succès!', 'success');
+    } else {
+      // Mode demo/fallback: utiliser base64 mais l'enregistrer dans image_url aussi
+      const base64Image = await fileToBase64(file);
+      const imageId = Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      
+      // CORRECTION: Stocker dans les deux endroits
+      uploadedImages[imageId] = base64Image;
+      
+      if (imagePreview) {
+        imagePreview.innerHTML = `
+          <img src="${base64Image}" alt="Aperçu" style="max-width: 200px; max-height: 200px; object-fit: cover; border-radius: 8px;">
+        `;
+      }
+      
+      // CORRECTION: Mettre l'image base64 directement dans image_url ET image_id
+      document.getElementById('product-image').value = base64Image;
+      document.getElementById('product-image-id').value = imageId;
+      
+      // Sauvegarder immédiatement
+      saveImagesToStorage();
+      showNotification('Image uploadée (mode demo)!', 'success');
     }
-    
-    // Stocker l'ID de l'image dans un champ caché
-    document.getElementById('product-image-id').value = imageId;
-    
-    showNotification('Image uploadée avec succès!', 'success');
+
   } catch (error) {
     console.error('Erreur upload:', error);
-    showNotification('Erreur lors de l\'upload de l\'image', 'error');
+    showNotification('Erreur lors de l\'upload de l\'image: ' + error.message, 'error');
   } finally {
     if (uploadButton) uploadButton.disabled = false;
   }
 }
 function getImageUrl(product) {
-  if (product.image_id && uploadedImages[product.image_id]) {
+  // 1. URL directe (Supabase Storage ou URL complète)
+  if (product.image_url && 
+      product.image_url !== 'https://via.placeholder.com/600x800?text=Image' &&
+      !product.image_url.includes('via.placeholder.com')) {
+    return product.image_url;
+  }
+  
+  // 2. Image locale (mode demo/fallback)
+  if (product.image_id && typeof uploadedImages !== 'undefined' && uploadedImages[product.image_id]) {
     return uploadedImages[product.image_id];
   }
-  return product.image_url || 'https://via.placeholder.com/600x800?text=Image';
+  
+  // 3. Générer une image de placeholder locale
+  return generatePlaceholderImage(400, 500, 'Image\nnon disponible');
+}
+function getImageUrl(product) {
+  // 1. Si image_url existe et n'est pas un placeholder, l'utiliser
+  if (product.image_url && 
+      product.image_url !== 'https://via.placeholder.com/600x800?text=Image' &&
+      !product.image_url.includes('via.placeholder.com') &&
+      product.image_url.trim() !== '') {
+    return product.image_url;
+  }
+  
+  // 2. Si image_id existe et image dans uploadedImages, l'utiliser
+  if (product.image_id && uploadedImages && uploadedImages[product.image_id]) {
+    return uploadedImages[product.image_id];
+  }
+  
+  // 3. Générer une image de placeholder locale
+  return generatePlaceholderImage(400, 500, product.name || 'Image\nnon disponible');
+}
+function fixPlaceholderUrls() {
+  // Corriger toutes les images avec des URLs placeholder problématiques
+  document.querySelectorAll('img[src*="via.placeholder.com"]').forEach(img => {
+    const width = img.width || 400;
+    const height = img.height || 500;
+    img.src = generatePlaceholderImage(width, height, 'Image\nnon disponible');
+  });
+  
+  // Corriger dans les données des produits si elles existent
+  if (typeof products !== 'undefined' && Array.isArray(products)) {
+    products.forEach(product => {
+      if (product.image_url && product.image_url.includes('via.placeholder.com')) {
+        product.image_url = generatePlaceholderImage(400, 500, 'Image\nnon disponible');
+      }
+    });
+  }
 }
 function saveImagesToStorage() {
   try {
@@ -102,14 +182,118 @@ function saveImagesToStorage() {
 
 function loadImagesFromStorage() {
   try {
-    const stored = localStorage.getItem('elyna_uploaded_images');
-    if (stored) {
-      uploadedImages = JSON.parse(stored);
+    // Charger les images uploadées
+    const storedImages = localStorage.getItem('elyna_uploaded_images');
+    if (storedImages) {
+      uploadedImages = JSON.parse(storedImages);
+    }
+    
+    // NOUVEAU: Charger aussi les produits sauvegardés en mode demo
+    if (!supabaseClient) {
+      const storedProducts = localStorage.getItem('elyna_products');
+      if (storedProducts) {
+        const savedProducts = JSON.parse(storedProducts);
+        // Fusionner avec les produits demo mais préserver les ajouts
+        products = [...demoProducts, ...savedProducts.filter(p => p.id > 1000)];
+        console.log('Produits chargés depuis le stockage local');
+      }
     }
   } catch (e) {
     console.warn('Impossible de charger les images:', e);
     uploadedImages = {};
   }
+}
+function handleImageError(img) {
+  console.warn('Erreur de chargement d\'image:', img.src);
+  
+  // Éviter les boucles infinies
+  if (img.src.startsWith('data:image/png;base64,')) {
+    console.warn('Image placeholder déjà générée, pas de remplacement');
+    return;
+  }
+  
+  // Vérifier si c'est une image uploadée localement
+  const productId = img.closest('[data-id]')?.dataset?.id;
+  if (productId) {
+    const product = products.find(p => p.id == productId);
+    if (product && product.image_id && uploadedImages[product.image_id]) {
+      img.src = uploadedImages[product.image_id];
+      return;
+    }
+  }
+  
+  // Remplacer par une image générée localement
+  const placeholderSrc = generatePlaceholderImage(
+    img.naturalWidth || 400, 
+    img.naturalHeight || 500, 
+    'Image\nnon disponible'
+  );
+  
+  // Éviter de remplacer si c'est déjà le même placeholder
+  if (img.src !== placeholderSrc) {
+    img.src = placeholderSrc;
+  }
+  
+  // Ajouter une classe pour le styling d'erreur
+  img.classList.add('image-error');
+}
+function generatePlaceholderImage(width = 400, height = 500, text = 'Image non disponible') {
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  
+  // Arrière-plan avec dégradé
+  const gradient = ctx.createLinearGradient(0, 0, 0, height);
+  gradient.addColorStop(0, '#F5F5DC'); // Beige clair
+  gradient.addColorStop(1, '#E6E6D2'); // Beige plus foncé
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+  
+  // Bordure
+  ctx.strokeStyle = '#D4D4AA';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(1, 1, width-2, height-2);
+  
+  // Icône d'image
+  ctx.fillStyle = '#A67C52';
+  ctx.font = '48px FontAwesome';
+  ctx.textAlign = 'center';
+  ctx.fillText('🖼️', width/2, height/2 - 20);
+  
+  // Texte
+  ctx.fillStyle = '#8B7355';
+  ctx.font = 'bold 16px Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  
+  // Diviser le texte en lignes
+  const words = text.split(/[\s\n]/);
+  const lines = [];
+  let currentLine = '';
+  
+  words.forEach(word => {
+    const testLine = currentLine + (currentLine ? ' ' : '') + word;
+    const metrics = ctx.measureText(testLine);
+    if (metrics.width > width - 60 && currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = testLine;
+    }
+  });
+  if (currentLine) lines.push(currentLine);
+  
+  // Dessiner les lignes
+  const lineHeight = 22;
+  const totalHeight = lines.length * lineHeight;
+  const startY = (height/2) + 40;
+  
+  lines.forEach((line, index) => {
+    ctx.fillText(line, width / 2, startY + (index * lineHeight));
+  });
+  
+  return canvas.toDataURL('image/png');
 }
 
 /* ========== UTILITAIRES ========== */
@@ -1088,10 +1272,193 @@ async function loadOrders(){
   } catch(err){ console.error('loadOrders', err); }
 }
 
+// Fonction pour générer un PDF de commande
+function generateOrderPDF(orderId) {
+  const order = orders.find(o => o.id === orderId);
+  if (!order) {
+    showNotification('Commande non trouvée', 'error');
+    return;
+  }
+
+  // Créer un nouveau document PDF avec jsPDF
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  // Configuration des couleurs (équivalent aux couleurs CSS de votre thème)
+  const primaryColor = [166, 124, 82]; // #A67C52 (accent)
+  const textColor = [51, 51, 51]; // #333
+  const grayColor = [119, 119, 119]; // #777
+
+  // En-tête
+  doc.setFillColor(...primaryColor);
+  doc.rect(0, 0, 210, 40, 'F');
+  
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(24);
+  doc.setFont('helvetica', 'bold');
+  doc.text('ELYNA', 20, 25);
+  
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Facture de commande', 130, 25);
+
+  // Informations de la commande
+  doc.setTextColor(...textColor);
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Commande #${order.id}`, 20, 60);
+  
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Date: ${new Date(order.created_at || order.order_date).toLocaleDateString('fr-FR')}`, 20, 70);
+  doc.text(`Statut: ${getStatusText(order.status)}`, 20, 80);
+
+  // Informations client
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Informations Client', 20, 100);
+  
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  const customerData = order.customer_data || {};
+  doc.text(`Nom: ${customerData.firstname || ''} ${customerData.lastname || ''}`, 20, 115);
+  doc.text(`Email: ${customerData.email || ''}`, 20, 125);
+  doc.text(`Téléphone: ${customerData.phone || ''}`, 20, 135);
+  doc.text(`Adresse: ${customerData.address || ''}`, 20, 145);
+  doc.text(`Gouvernorat: ${customerData.governorate || ''}`, 20, 155);
+  if (customerData.payment_method) {
+    doc.text(`Mode de paiement: ${customerData.payment_method}`, 20, 165);
+  }
+
+  // Tableau des articles
+  let yPosition = 185;
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Articles commandés', 20, yPosition);
+  
+  yPosition += 15;
+  
+  // En-têtes du tableau
+  doc.setFillColor(245, 245, 220); // Beige clair
+  doc.rect(20, yPosition, 170, 10, 'F');
+  
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Produit', 25, yPosition + 7);
+  doc.text('Qté', 120, yPosition + 7);
+  doc.text('Prix unit.', 140, yPosition + 7);
+  doc.text('Total', 170, yPosition + 7);
+  
+  yPosition += 15;
+
+  // Articles
+  doc.setFont('helvetica', 'normal');
+  const items = order.items || [];
+  let subtotal = 0;
+
+  items.forEach((item, index) => {
+    if (yPosition > 260) { // Nouvelle page si nécessaire
+      doc.addPage();
+      yPosition = 40;
+    }
+
+    const itemTotal = item.total_price || (item.unit_price * item.quantity) || 0;
+    subtotal += itemTotal;
+
+    doc.text(item.product_name || 'Produit', 25, yPosition);
+    doc.text(String(item.quantity || 0), 125, yPosition);
+    doc.text(`${(item.unit_price || 0).toFixed(2)} DT`, 140, yPosition);
+    doc.text(`${itemTotal.toFixed(2)} DT`, 170, yPosition);
+    
+    yPosition += 10;
+  });
+
+  // Ligne de séparation
+  yPosition += 5;
+  doc.line(20, yPosition, 190, yPosition);
+  yPosition += 10;
+
+  // Totaux
+  doc.setFont('helvetica', 'normal');
+  doc.text('Sous-total:', 130, yPosition);
+  doc.text(`${subtotal.toFixed(2)} DT`, 170, yPosition);
+  
+  yPosition += 10;
+  const shippingFee = subtotal >= 300 ? 0 : 15;
+  doc.text('Livraison:', 130, yPosition);
+  doc.text(shippingFee === 0 ? 'Gratuite' : `${shippingFee.toFixed(2)} DT`, 170, yPosition);
+  
+  yPosition += 15;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.text('Total:', 130, yPosition);
+  doc.text(`${(order.total_amount || 0).toFixed(2)} DT`, 170, yPosition);
+
+  // Notes si présentes
+  if (customerData.notes) {
+    yPosition += 20;
+    if (yPosition > 250) {
+      doc.addPage();
+      yPosition = 40;
+    }
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Notes du client:', 20, yPosition);
+    yPosition += 10;
+    
+    doc.setFont('helvetica', 'normal');
+    const notes = customerData.notes;
+    const splitNotes = doc.splitTextToSize(notes, 170);
+    doc.text(splitNotes, 20, yPosition);
+  }
+
+  // Pied de page
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(...grayColor);
+    doc.text('ELYNA - Boutique de mode féminine', 20, 285);
+    doc.text(`Page ${i} sur ${pageCount}`, 170, 285);
+  }
+
+  // Télécharger le PDF
+  const fileName = `Commande_${order.id}_${new Date().toISOString().split('T')[0]}.pdf`;
+  doc.save(fileName);
+  
+  showNotification(`PDF généré: ${fileName}`, 'success');
+}
+
+// Fonction pour vérifier si jsPDF est disponible
+function checkPDFLibrary() {
+  if (typeof window.jspdf === 'undefined') {
+    showNotification('Bibliothèque PDF non disponible. Chargement...', 'info');
+    
+    // Charger jsPDF depuis CDN
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    script.onload = () => {
+      showNotification('Bibliothèque PDF chargée avec succès!', 'success');
+    };
+    script.onerror = () => {
+      showNotification('Erreur lors du chargement de la bibliothèque PDF', 'error');
+    };
+    document.head.appendChild(script);
+    return false;
+  }
+  return true;
+}
+
+// Version modifiée de renderOrdersTable avec le bouton PDF
 function renderOrdersTable(){
   const container = document.getElementById('orders-table');
   if(!container) return;
-  if(!orders || orders.length===0){ container.innerHTML = `<div style="text-align:center;color:#777;padding:30px">Aucune commande</div>`; return; }
+  if(!orders || orders.length===0){ 
+    container.innerHTML = `<div style="text-align:center;color:#777;padding:30px">Aucune commande</div>`; 
+    return; 
+  }
+  
   container.innerHTML = `
     <div class="overflow-x-auto">
       <table class="min-w-full bg-white rounded-lg overflow-hidden shadow">
@@ -1127,8 +1494,11 @@ function renderOrdersTable(){
                     <option value="confirmed" ${o.status==='confirmed'?'selected':''}>Confirmé</option>
                     <option value="delivered" ${o.status==='delivered'?'selected':''}>Livré</option>
                   </select>
-                  <button class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-sm" onclick="viewOrderDetails(${o.id})">
+                  <button class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-sm" onclick="viewOrderDetails(${o.id})" title="Voir les détails">
                     <i class="fas fa-eye"></i>
+                  </button>
+                  <button class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-sm" onclick="downloadOrderPDF(${o.id})" title="Télécharger PDF">
+                    <i class="fas fa-file-pdf"></i>
                   </button>
                 </div>
               </td>
@@ -1140,6 +1510,21 @@ function renderOrdersTable(){
   `;
 }
 
+// Fonction wrapper pour gérer le téléchargement PDF avec vérification
+function downloadOrderPDF(orderId) {
+  if (checkPDFLibrary()) {
+    generateOrderPDF(orderId);
+  } else {
+    // Réessayer après 2 secondes si la bibliothèque se charge
+    setTimeout(() => {
+      if (checkPDFLibrary()) {
+        generateOrderPDF(orderId);
+      } else {
+        showNotification('Impossible de charger la bibliothèque PDF. Veuillez réessayer.', 'error');
+      }
+    }, 2000);
+  }
+}
 function getStatusClass(status){
   const classes = {
     'pending': 'bg-yellow-100 text-yellow-800',
@@ -1841,7 +2226,7 @@ function updateProductFormCategories() {
 }
 
 /* ========== PRODUCT MANAGEMENT (MODIFIÉ POUR NOUVELLES CATÉGORIES) ========== */
-function editProduct(id){ 
+function editProduct(id) { 
   const product = products.find(p => p.id === id);
   if(!product) {
     showNotification('Produit non trouvé','error');
@@ -1855,25 +2240,36 @@ function editProduct(id){
   document.getElementById('product-price').value = product.price || '';
   document.getElementById('product-description').value = product.description || '';
   document.getElementById('product-stock').value = product.stock || 0;
-  //document.getElementById('product-image').value = product.image_url || '';
   document.getElementById('product-promo').value = product.promo || 0;
-  if (product.image_id && uploadedImages[product.image_id]) {
-  document.getElementById('product-image-id').value = product.image_id;
+  
+  // CORRECTION: Gérer l'image correctement
   const imagePreview = document.getElementById('image-preview');
-  if (imagePreview) {
-    imagePreview.innerHTML = `<img src="${uploadedImages[product.image_id]}" alt="Aperçu" style="max-width: 200px; max-height: 200px; object-fit: cover; border-radius: 8px;">`;
+  
+  // Si le produit a une image_url directe (base64 ou URL)
+  if (product.image_url && !product.image_url.includes('via.placeholder.com')) {
+    document.getElementById('product-image').value = product.image_url;
+    if (imagePreview) {
+      imagePreview.innerHTML = `<img src="${product.image_url}" alt="Aperçu" style="max-width: 200px; max-height: 200px; object-fit: cover; border-radius: 8px;">`;
+    }
   }
-} else {
-  document.getElementById('product-image-id').value = '';
-  const imagePreview = document.getElementById('image-preview');
-  if (imagePreview) imagePreview.innerHTML = '';
-}
+  // Si le produit a un image_id et l'image existe dans uploadedImages
+  else if (product.image_id && uploadedImages[product.image_id]) {
+    document.getElementById('product-image-id').value = product.image_id;
+    document.getElementById('product-image').value = uploadedImages[product.image_id];
+    if (imagePreview) {
+      imagePreview.innerHTML = `<img src="${uploadedImages[product.image_id]}" alt="Aperçu" style="max-width: 200px; max-height: 200px; object-fit: cover; border-radius: 8px;">`;
+    }
+  } else {
+    // Pas d'image
+    document.getElementById('product-image').value = '';
+    document.getElementById('product-image-id').value = '';
+    if (imagePreview) imagePreview.innerHTML = '';
+  }
   
   // Utiliser category_id au lieu de category
   const categorySelect = document.getElementById('product-category');
   if (categorySelect) {
     categorySelect.value = product.category_id || '';
-    // Déclencher le changement pour charger les sous-catégories
     onProductCategoryChange();
   }
   
@@ -1944,6 +2340,7 @@ async function handleAddProduct(e){
   const categoryId = parseInt(document.getElementById('product-category').value) || null;
   const subcategoryId = parseInt(document.getElementById('product-subcategory').value) || null;
   const stock = parseInt(document.getElementById('product-stock').value,10);
+  const imageUrl = document.getElementById('product-image').value.trim(); 
   const imageId = document.getElementById('product-image-id').value.trim();
   const promo = parseInt(document.getElementById('product-promo').value,10) || 0;
   
@@ -1957,6 +2354,28 @@ async function handleAddProduct(e){
     return;
   }
 
+  // CORRECTION: Gérer l'image correctement
+  let finalImageUrl = '';
+  let finalImageId = '';
+  
+  if (imageUrl && imageUrl.startsWith('data:image/')) {
+    // Image base64 - la stocker comme image_url directement
+    finalImageUrl = imageUrl;
+    finalImageId = imageId || '';
+  } else if (imageUrl && !imageUrl.includes('via.placeholder.com')) {
+    // URL normale (Supabase ou autre)
+    finalImageUrl = imageUrl;
+    finalImageId = '';
+  } else if (imageId && uploadedImages[imageId]) {
+    // Image stockée localement
+    finalImageUrl = uploadedImages[imageId];
+    finalImageId = imageId;
+  } else {
+    // Pas d'image - générer placeholder
+    finalImageUrl = generatePlaceholderImage(400, 500, name || 'Produit');
+    finalImageId = '';
+  }
+
   const productData = { 
     name, 
     price, 
@@ -1965,8 +2384,8 @@ async function handleAddProduct(e){
     subcategory_id: subcategoryId,
     stock: isNaN(stock) ? 0 : stock, 
     promo: promo,
-     image_id: imageId || null,
-  image_url: imageId ? null : 'https://via.placeholder.com/600x800?text=Image', 
+    image_id: finalImageId,
+    image_url: finalImageUrl,
     created_at: new Date().toISOString() 
   };
 
@@ -2003,6 +2422,8 @@ async function handleAddProduct(e){
       }
       showNotification('Produit ajouté avec succès!','success');
     }
+    
+    // CORRECTION: Toujours sauvegarder les images après modification
     saveImagesToStorage();
     buildCategoryTree(); 
     renderProducts(); 
@@ -2016,6 +2437,26 @@ async function handleAddProduct(e){
       errorEl.textContent = err.message || err;
       errorEl.classList.remove('hidden');
     }
+  }
+}
+
+// 6. Améliorer les fonctions de stockage
+function saveImagesToStorage() {
+  try {
+    // Sauvegarder les images uploadées
+    localStorage.setItem('elyna_uploaded_images', JSON.stringify(uploadedImages));
+    
+    // NOUVEAU: Sauvegarder aussi les produits avec leurs images
+    const productsWithImages = products.map(p => ({
+      ...p,
+      // S'assurer que l'image_url est préservée
+      image_url: p.image_url || (p.image_id && uploadedImages[p.image_id] ? uploadedImages[p.image_id] : generatePlaceholderImage(400, 500, p.name))
+    }));
+    localStorage.setItem('elyna_products', JSON.stringify(productsWithImages));
+    
+    console.log('Images et produits sauvegardés');
+  } catch (e) {
+    console.warn('Impossible de sauvegarder les images:', e);
   }
 }
 
@@ -2104,29 +2545,74 @@ async function initCategories() {
 }
 
 /* ========== SETUP & INIT (MODIFIÉ) ========== */
+function handleImageError(img) {
+  console.warn('Erreur de chargement d\'image:', img.src);
+  
+  // Éviter les boucles infinies
+  if (img.src.startsWith('data:image/png;base64,')) {
+    console.warn('Image placeholder déjà générée, pas de remplacement');
+    return;
+  }
+  
+  // Vérifier si c'est une image uploadée localement
+  const productId = img.closest('[data-id]')?.dataset?.id;
+  if (productId) {
+    const product = products.find(p => p.id == productId);
+    if (product && product.image_id && uploadedImages[product.image_id]) {
+      img.src = uploadedImages[product.image_id];
+      return;
+    }
+  }
+  
+  // Remplacer par une image générée localement
+  const placeholderSrc = generatePlaceholderImage(
+    img.naturalWidth || 400, 
+    img.naturalHeight || 500, 
+    'Image\nnon disponible'
+  );
+  
+  // Éviter de remplacer si c'est déjà le même placeholder
+  if (img.src !== placeholderSrc) {
+    img.src = placeholderSrc;
+  }
+  
+  // Ajouter une classe pour le styling d'erreur
+  img.classList.add('image-error');
+}
+
+// 8. Modifier l'initialisation pour charger les images en premier
 async function init(){
   try {
     console.log('Init...');
+    
+    // CORRECTION: Charger les images en premier
+    loadImagesFromStorage();
+    
     if(window.supabase){
       supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
       console.log('Supabase initialisé');
       
-      // Charger les catégories en premier
       await initCategories();
       await loadProducts();
     } else {
       console.warn('Supabase non disponible, mode demo');
-      // Initialiser les catégories demo
       await initCategories();
-      products = demoProducts.slice();
+      
+      // En mode demo, si pas de produits chargés du storage, utiliser les démos
+      if (products.length === 0) {
+        products = demoProducts.slice();
+      }
+      
       buildCategoryTree();
       renderProducts();
     }
 
     setupEventListeners();
     loadCartFromStorage();
-    loadImagesFromStorage();
     updateCartCount();
+    
+    // CORRECTION: Corriger les placeholders après le chargement
+    setTimeout(fixPlaceholderUrls, 100);
   } catch(err){ 
     console.error('init', err); 
     // Fallback complet
@@ -2134,6 +2620,16 @@ async function init(){
     products = demoProducts.slice(); 
     buildCategoryTree(); 
     renderProducts(); 
+  }
+}
+function clearImageCache() {
+  try {
+    localStorage.removeItem('elyna_uploaded_images');
+    localStorage.removeItem('elyna_products');
+    uploadedImages = {};
+    showNotification('Cache d\'images nettoyé', 'info');
+  } catch (e) {
+    console.warn('Erreur nettoyage cache:', e);
   }
 }
 

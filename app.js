@@ -14,6 +14,7 @@ let categories = [];
 let subcategories = [];
 let editingCategory = null;
 let uploadedImages = {};
+let passwordResetInProgress = false;
 
 /* Demo products (used if Supabase absent) */
 const demoProducts = [
@@ -295,6 +296,1469 @@ function generatePlaceholderImage(width = 400, height = 500, text = 'Image non d
   
   return canvas.toDataURL('image/png');
 }
+function createPasswordResetModals() {
+  // Supprimer les modales existantes si elles existent
+  const existingReset = document.getElementById('password-reset-modal');
+  const existingUpdate = document.getElementById('password-update-modal');
+  if (existingReset) existingReset.remove();
+  if (existingUpdate) existingUpdate.remove();
+
+  // Modal de demande de réinitialisation - IDs CORRIGÉS
+  const resetModal = document.createElement('div');
+  resetModal.id = 'password-reset-modal';
+  resetModal.className = 'modal';
+  resetModal.innerHTML = `
+    <div class="modal-content" style="max-width: 400px; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.3);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <h2 style="font-size: 1.25rem; font-weight: bold; color: #A67C52; margin: 0;">
+          <i class="fas fa-key" style="margin-right: 8px;"></i> Réinitialiser le mot de passe
+        </h2>
+        <button onclick="closeModal('password-reset-modal')" style="
+          background: none; 
+          border: none; 
+          font-size: 24px; 
+          color: #666; 
+          cursor: pointer;
+          padding: 0;
+          width: 30px;
+          height: 30px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        ">&times;</button>
+      </div>
+      
+      <div style="color: #666; margin-bottom: 24px; font-size: 14px; line-height: 1.5;">
+        Saisissez votre adresse email pour recevoir un lien de réinitialisation de votre mot de passe.
+      </div>
+      
+      <!-- ID CORRIGÉ : password-reset-error au lieu de reset-error -->
+      <div id="password-reset-error" style="
+        background: #fee2e2; 
+        border: 1px solid #fca5a5; 
+        color: #dc2626; 
+        padding: 12px; 
+        border-radius: 8px; 
+        margin-bottom: 16px; 
+        font-size: 14px;
+        display: none;
+      "></div>
+      
+      <!-- ID CORRIGÉ : password-reset-success au lieu de reset-success -->
+      <div id="password-reset-success" style="
+        background: #d1fae5; 
+        border: 1px solid #6ee7b7; 
+        color: #065f46; 
+        padding: 12px; 
+        border-radius: 8px; 
+        margin-bottom: 16px; 
+        font-size: 14px;
+        display: none;
+      "></div>
+      
+      <form id="password-reset-form">
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; color: #374151; margin-bottom: 8px; font-weight: 500; font-size: 14px;">
+            Adresse email *
+          </label>
+          <input 
+            type="email" 
+            id="reset-email" 
+            required 
+            placeholder="votre@email.com" 
+            style="
+              width: 100%; 
+              padding: 12px 16px; 
+              border: 2px solid #d1d5db; 
+              border-radius: 8px; 
+              font-size: 14px; 
+              outline: none; 
+              transition: border-color 0.3s;
+              box-sizing: border-box;
+            " 
+            onfocus="this.style.borderColor='#A67C52'" 
+            onblur="this.style.borderColor='#d1d5db'"
+          >
+        </div>
+        
+        <button 
+          type="submit" 
+          id="reset-submit-btn"
+          style="
+            background: #A67C52; 
+            color: white; 
+            width: 100%; 
+            padding: 14px; 
+            border: none; 
+            border-radius: 8px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            transition: background-color 0.3s;
+            font-size: 15px;
+            margin-bottom: 20px;
+          " 
+          onmouseover="this.style.background='#8B6A42'" 
+          onmouseout="this.style.background='#A67C52'"
+        >
+          <i class="fas fa-paper-plane" style="margin-right: 8px;"></i>
+          Envoyer le lien de réinitialisation
+        </button>
+      </form>
+      
+      <div style="text-align: center;">
+        <button 
+          onclick="closeModal('password-reset-modal'); showModal('admin-modal');" 
+          style="
+            background: none; 
+            border: none; 
+            color: #A67C52; 
+            font-size: 14px; 
+            cursor: pointer; 
+            text-decoration: underline;
+            padding: 8px;
+          "
+        >
+          Retour à la connexion
+        </button>
+      </div>
+    </div>
+  `;
+
+  // Modal de mise à jour du mot de passe - CHAMPS BIEN VISIBLES ET FONCTIONNELS
+  const updateModal = document.createElement('div');
+  updateModal.id = 'password-update-modal';
+  updateModal.className = 'modal';
+  updateModal.innerHTML = `
+    <div class="modal-content" style="max-width: 450px; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.3);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <h2 style="font-size: 1.3rem; font-weight: bold; color: #A67C52; margin: 0;">
+          <i class="fas fa-lock" style="margin-right: 8px;"></i> Nouveau mot de passe
+        </h2>
+        <button onclick="closeModal('password-update-modal')" style="
+          background: none; 
+          border: none; 
+          font-size: 24px; 
+          color: #666; 
+          cursor: pointer;
+          padding: 0;
+          width: 30px;
+          height: 30px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        ">&times;</button>
+      </div>
+      
+      <div style="color: #666; margin-bottom: 24px; font-size: 14px; line-height: 1.5; background: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #A67C52;">
+        <i class="fas fa-info-circle" style="color: #A67C52; margin-right: 8px;"></i>
+        <strong>Choisissez un nouveau mot de passe sécurisé.</strong><br>
+        Il remplacera définitivement votre ancien mot de passe.
+      </div>
+      
+      <div id="update-error" style="
+        background: #fee2e2; 
+        border: 1px solid #fca5a5; 
+        color: #dc2626; 
+        padding: 12px; 
+        border-radius: 8px; 
+        margin-bottom: 16px; 
+        font-size: 14px;
+        display: none;
+      "></div>
+      
+      <div id="update-success" style="
+        background: #d1fae5; 
+        border: 1px solid #6ee7b7; 
+        color: #065f46; 
+        padding: 12px; 
+        border-radius: 8px; 
+        margin-bottom: 16px; 
+        font-size: 14px;
+        display: none;
+      "></div>
+      
+      <form id="password-update-form" style="display: block;">
+        
+        <!-- CHAMP 1: NOUVEAU MOT DE PASSE - TRÈS VISIBLE -->
+        <div style="margin-bottom: 20px; background: #f8f9fa; padding: 16px; border-radius: 8px; border: 2px solid #e9ecef;">
+          <label for="new-password" style="display: block; color: #A67C52; margin-bottom: 8px; font-weight: bold; font-size: 15px;">
+            <i class="fas fa-key" style="margin-right: 8px;"></i>
+            NOUVEAU MOT DE PASSE *
+          </label>
+          <div style="position: relative;">
+            <input 
+              type="password" 
+              id="new-password" 
+              name="new-password"
+              required 
+              minlength="6" 
+              placeholder="Tapez votre nouveau mot de passe (min. 6 caractères)" 
+              autocomplete="new-password"
+              style="
+                width: 100%; 
+                padding: 16px 50px 16px 16px; 
+                border: 3px solid #A67C52; 
+                border-radius: 8px; 
+                font-size: 16px; 
+                outline: none; 
+                transition: all 0.3s;
+                box-sizing: border-box;
+                background: white;
+                font-weight: 500;
+              " 
+              onfocus="this.style.borderColor='#8B6A42'; this.style.boxShadow='0 0 10px rgba(166, 124, 82, 0.3)'; this.parentElement.parentElement.style.background='#fff';" 
+              onblur="this.style.borderColor='#A67C52'; this.style.boxShadow='none'; this.parentElement.parentElement.style.background='#f8f9fa';"
+            >
+            <button type="button" onclick="togglePasswordVisibility('new-password')" style="
+              position: absolute;
+              right: 12px;
+              top: 50%;
+              transform: translateY(-50%);
+              background: none;
+              border: none;
+              color: #A67C52;
+              cursor: pointer;
+              font-size: 18px;
+              padding: 4px;
+            " title="Afficher/Masquer le mot de passe">
+              <i class="fas fa-eye"></i>
+            </button>
+          </div>
+          <div style="font-size: 12px; color: #666; margin-top: 6px;">
+            <i class="fas fa-shield-alt" style="margin-right: 4px; color: #A67C52;"></i>
+            Minimum 6 caractères. Utilisez lettres, chiffres et symboles pour plus de sécurité.
+          </div>
+        </div>
+        
+        <!-- CHAMP 2: CONFIRMATION MOT DE PASSE - TRÈS VISIBLE -->
+        <div style="margin-bottom: 24px; background: #f8f9fa; padding: 16px; border-radius: 8px; border: 2px solid #e9ecef;">
+          <label for="confirm-password" style="display: block; color: #A67C52; margin-bottom: 8px; font-weight: bold; font-size: 15px;">
+            <i class="fas fa-check-double" style="margin-right: 8px;"></i>
+            CONFIRMER LE MOT DE PASSE *
+          </label>
+          <div style="position: relative;">
+            <input 
+              type="password" 
+              id="confirm-password" 
+              name="confirm-password"
+              required 
+              minlength="6" 
+              placeholder="Retapez exactement le même mot de passe" 
+              autocomplete="new-password"
+              style="
+                width: 100%; 
+                padding: 16px 50px 16px 16px; 
+                border: 3px solid #A67C52; 
+                border-radius: 8px; 
+                font-size: 16px; 
+                outline: none; 
+                transition: all 0.3s;
+                box-sizing: border-box;
+                background: white;
+                font-weight: 500;
+              " 
+              onfocus="this.style.borderColor='#8B6A42'; this.style.boxShadow='0 0 10px rgba(166, 124, 82, 0.3)'; this.parentElement.parentElement.style.background='#fff';" 
+              onblur="this.style.borderColor='#A67C52'; this.style.boxShadow='none'; this.parentElement.parentElement.style.background='#f8f9fa';"
+              oninput="checkPasswordMatch()"
+            >
+            <button type="button" onclick="togglePasswordVisibility('confirm-password')" style="
+              position: absolute;
+              right: 12px;
+              top: 50%;
+              transform: translateY(-50%);
+              background: none;
+              border: none;
+              color: #A67C52;
+              cursor: pointer;
+              font-size: 18px;
+              padding: 4px;
+            " title="Afficher/Masquer le mot de passe">
+              <i class="fas fa-eye"></i>
+            </button>
+          </div>
+          <div id="password-match-indicator" style="font-size: 13px; margin-top: 6px; display: none; font-weight: 500;">
+          </div>
+        </div>
+        
+        <!-- BOUTON DE SOUMISSION - TRÈS VISIBLE -->
+        <button 
+          type="submit" 
+          id="update-submit-btn"
+          style="
+            background: linear-gradient(135deg, #A67C52, #8B6A42); 
+            color: white; 
+            width: 100%; 
+            padding: 18px; 
+            border: none; 
+            border-radius: 10px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            transition: all 0.3s;
+            font-size: 17px;
+            box-shadow: 0 4px 15px rgba(166, 124, 82, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          " 
+          onmouseover="this.style.background='linear-gradient(135deg, #8B6A42, #6D5235)'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(166, 124, 82, 0.6)';" 
+          onmouseout="this.style.background='linear-gradient(135deg, #A67C52, #8B6A42)'; this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(166, 124, 82, 0.4)';"
+        >
+          <i class="fas fa-save" style="margin-right: 10px;"></i>
+          ENREGISTRER LE NOUVEAU MOT DE PASSE
+        </button>
+        
+        <!-- MESSAGE DE SÉCURITÉ -->
+        <div style="margin-top: 20px; padding: 15px; background: linear-gradient(135deg, #e0f7fa, #f0f9ff); border: 1px solid #A67C52; border-radius: 8px; font-size: 13px; color: #0369a1; text-align: center;">
+          <i class="fas fa-lock" style="margin-right: 6px; color: #A67C52;"></i>
+          <strong>Sécurisé :</strong> Votre nouveau mot de passe sera chiffré et remplacera définitivement l'ancien dans la base de données.
+        </div>
+      </form>
+    </div>
+  `;
+
+  // Ajouter les modales au DOM
+  document.body.appendChild(resetModal);
+  document.body.appendChild(updateModal);
+  
+  console.log('✅ Modales créées avec champs visibles:', {
+    resetModal: !!document.getElementById('password-reset-modal'),
+    updateModal: !!document.getElementById('password-update-modal'),
+    newPasswordField: !!document.getElementById('new-password'),
+    confirmPasswordField: !!document.getElementById('confirm-password')
+  });
+}
+function togglePasswordVisibility(inputId) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  
+  const button = input.parentElement.querySelector('button i');
+  
+  if (input.type === 'password') {
+    input.type = 'text';
+    if (button) button.className = 'fas fa-eye-slash';
+  } else {
+    input.type = 'password';
+    if (button) button.className = 'fas fa-eye';
+  }
+  console.log(`👁️ Visibilité basculée pour ${inputId}:`, input.type);
+}
+function showMessage(elementId, message, type = 'error') {
+  const element = document.getElementById(elementId);
+  if (element) {
+    element.innerHTML = message;
+    element.style.display = 'block';
+    element.classList.remove('hidden');
+  }
+}
+
+function hideMessage(elementId) {
+  const element = document.getElementById(elementId);
+  if (element) {
+    element.style.display = 'none';
+    element.classList.add('hidden');
+  }
+}
+function showModal(modalId) {
+  console.log('🔄 showModal appelée pour:', modalId);
+  const modal = document.getElementById(modalId);
+  if (modal) {
+    modal.classList.add('active');
+    console.log('✅ Modal activée:', modalId);
+    
+    // Fermer en cliquant sur l'arrière-plan
+    modal.onclick = function(e) {
+      if (e.target === modal) {
+        closeModal(modalId);
+      }
+    };
+  } else {
+    console.error('❌ Modal non trouvée:', modalId);
+  }
+}
+
+function closeModal(modalId) {
+  console.log('🔄 closeModal appelée pour:', modalId);
+  const modal = document.getElementById(modalId);
+  if (modal) {
+    modal.classList.remove('active');
+    console.log('✅ Modal fermée:', modalId);
+    
+    // Réinitialiser les messages d'erreur/succès
+    const errorEl = modal.querySelector('[id$="-error"]');
+    const successEl = modal.querySelector('[id$="-success"]');
+    if (errorEl) {
+      errorEl.style.display = 'none';
+      errorEl.classList.add('hidden');
+    }
+    if (successEl) {
+      successEl.style.display = 'none';
+      successEl.classList.add('hidden');
+    }
+  } else {
+    console.error('❌ Modal non trouvée:', modalId);
+  }
+}
+// ========== MODIFIER LA MODAL ADMIN EXISTANTE ==========
+function addForgotPasswordLink() {
+  const adminModal = document.getElementById('admin-modal');
+  if (!adminModal) return;
+  
+  const form = adminModal.querySelector('form');
+  if (!form) return;
+  
+  // Vérifier si le lien n'existe pas déjà
+  if (adminModal.querySelector('.forgot-password-link')) return;
+  
+  const forgotPasswordDiv = document.createElement('div');
+  forgotPasswordDiv.className = 'forgot-password-link';
+  forgotPasswordDiv.style.cssText = 'text-align: center; margin-top: 16px;';
+  forgotPasswordDiv.innerHTML = `
+    <button type="button" onclick="closeModal('admin-modal'); showPasswordReset();" style="background: none; border: none; color: var(--accent); font-size: 14px; cursor: pointer; text-decoration: underline;">
+      Mot de passe oublié ?
+    </button>
+  `;
+  
+  form.appendChild(forgotPasswordDiv);
+}
+
+// ========== FONCTIONS DE RÉINITIALISATION ==========
+function showPasswordReset() {
+  showModal('password-reset-modal');
+}
+
+async function handlePasswordReset(e) {
+  e.preventDefault();
+  console.log('🔄 Début de handlePasswordReset');
+  
+  const email = document.getElementById('reset-email').value.trim();
+  console.log('📧 Email saisi:', email);
+  console.log('🔗 Supabase client:', supabaseClient ? 'Connecté' : 'Non connecté');
+  
+  hideMessage('reset-error');
+  hideMessage('reset-success');
+  
+  if(!email) {
+    console.log('❌ Email vide');
+    showMessage('reset-error', '<i class="fas fa-exclamation-triangle"></i> Veuillez saisir votre adresse email');
+    return;
+  }
+  
+  if(!isValidEmail(email)) {
+    console.log('❌ Email invalide:', email);
+    showMessage('reset-error', '<i class="fas fa-exclamation-triangle"></i> Veuillez saisir une adresse email valide');
+    return;
+  }
+  
+  console.log('✅ Email valide, début du processus');
+  
+  passwordResetInProgress = true;
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  const originalText = submitBtn.innerHTML;
+  submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i>Envoi en cours...';
+  submitBtn.disabled = true;
+  
+  try {
+    if(supabaseClient) {
+      console.log('🚀 Tentative d\'envoi via Supabase...');
+      
+      // Vérifier d'abord la configuration Supabase
+      try {
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        console.log('👤 Utilisateur actuel:', user);
+        
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        console.log('🔐 Session actuelle:', session);
+      } catch (authError) {
+        console.log('⚠️ Erreur auth (non critique):', authError);
+      }
+      
+      // Vérifier si l'email existe dans admin_users
+      try {
+        console.log('🔍 Vérification de l\'email dans admin_users...');
+        const { data: adminCheck, error: adminError } = await supabaseClient
+          .from('admin_users')
+          .select('email, id')
+          .eq('email', email)
+          .maybeSingle();
+        
+        console.log('👥 Résultat vérification admin:', {
+          found: !!adminCheck,
+          data: adminCheck,
+          error: adminError
+        });
+        
+        if (!adminCheck) {
+          throw new Error('Aucun compte administrateur trouvé avec cette adresse email.');
+        }
+        
+      } catch (checkError) {
+        console.log('❌ Erreur vérification admin:', checkError);
+        throw checkError;
+      }
+      
+      // Tentative de reset avec configuration détaillée
+      console.log('📤 Appel resetPasswordForEmail...');
+      const resetUrl = `${window.location.origin}${window.location.pathname}?type=recovery`;
+      console.log('🔗 URL de redirection:', resetUrl);
+      
+      const resetResult = await supabaseClient.auth.resetPasswordForEmail(email, {
+        redirectTo: resetUrl
+      });
+      
+      console.log('📤 Résultat de resetPasswordForEmail:', {
+        data: resetResult.data,
+        error: resetResult.error
+      });
+      
+      if(resetResult.error) {
+        console.error('❌ Erreur Supabase:', resetResult.error);
+        throw resetResult.error;
+      }
+      
+      console.log('✅ Email envoyé avec succès via Supabase');
+      showMessage('reset-success', '<i class="fas fa-check-circle"></i> Un email de réinitialisation a été envoyé à votre adresse', 'success');
+      
+    } else {
+      console.log('🔄 Mode demo - simulation...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.log('✅ Simulation terminée');
+      showMessage('reset-success', '<i class="fas fa-check-circle"></i> [MODE DEMO] Email de réinitialisation simulé envoyé', 'success');
+    }
+    
+    document.getElementById('reset-email').value = '';
+    showNotification('Email de réinitialisation envoyé!', 'success');
+    console.log('✅ Processus terminé avec succès');
+    
+  } catch(err) {
+    console.error('💥 Erreur dans handlePasswordReset:', {
+      message: err.message,
+      code: err.code,
+      status: err.status,
+      details: err
+    });
+    
+    let errorMessage = 'Erreur lors de l\'envoi de l\'email';
+    
+    // Messages d'erreur spécifiques selon le code d'erreur Supabase
+    if (err.message) {
+      if (err.message.includes('Email not confirmed')) {
+        errorMessage = 'Cette adresse email n\'est pas confirmée.';
+      } else if (err.message.includes('User not found')) {
+        errorMessage = 'Aucun compte trouvé avec cette adresse email.';
+      } else if (err.message.includes('rate limit')) {
+        errorMessage = 'Trop de tentatives. Veuillez attendre avant de réessayer.';
+      } else if (err.message.includes('admin')) {
+        errorMessage = err.message;
+      } else {
+        errorMessage = err.message;
+      }
+    }
+    
+    showMessage('reset-error', `<i class="fas fa-exclamation-triangle"></i> ${errorMessage}`);
+  } finally {
+    passwordResetInProgress = false;
+    submitBtn.innerHTML = originalText;
+    submitBtn.disabled = false;
+    console.log('🏁 Fin de handlePasswordReset');
+  }
+}
+async function testSupabaseConnection() {
+  console.log('🧪 Test de connexion Supabase...');
+  
+  if (!supabaseClient) {
+    console.log('❌ Supabase client non initialisé');
+    showNotification('Supabase non connecté', 'error');
+    return false;
+  }
+  
+  try {
+    // Test basique - essayer de lire une table
+    console.log('🔍 Test de lecture admin_users...');
+    const { data, error, count } = await supabaseClient
+      .from('admin_users')
+      .select('id', { count: 'exact', head: true });
+    
+    if (error) {
+      console.error('❌ Erreur test Supabase:', error);
+      showNotification('Erreur connexion Supabase: ' + error.message, 'error');
+      return false;
+    }
+    
+    console.log('✅ Connexion Supabase OK. Nb admins:', count);
+    showNotification('Supabase connecté! ' + count + ' admin(s) trouvé(s)', 'success');
+    return true;
+    
+  } catch (err) {
+    console.error('❌ Exception test Supabase:', err);
+    showNotification('Exception Supabase: ' + err.message, 'error');
+    return false;
+  }
+}
+
+async function testResetForced() {
+  const email = prompt('Email à tester:');
+  if (!email) return;
+  
+  console.log('🧪 Test forcé avec email:', email);
+  
+  try {
+    const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}${window.location.pathname}?type=recovery`
+    });
+    
+    if (error) {
+      console.error('❌ Erreur test forcé:', error);
+      showNotification('Erreur: ' + error.message, 'error');
+    } else {
+      console.log('✅ Test forcé réussi');
+      showNotification('Email envoyé avec succès!', 'success');
+    }
+  } catch (err) {
+    console.error('💥 Exception test forcé:', err);
+    showNotification('Exception: ' + err.message, 'error');
+  }
+}
+async function checkSupabaseConfig() {
+  console.log('🔧 Vérification configuration Supabase...');
+  console.log('📍 URL:', supabaseUrl);
+  console.log('🔑 Key (premiers caractères):', supabaseKey.substring(0, 20) + '...');
+  
+  if (!supabaseClient) {
+    console.log('❌ Client non initialisé');
+    return;
+  }
+  
+  // Tester les tables
+  console.log('📋 Test des tables:');
+  
+  const tables = ['admin_users', 'products', 'orders'];
+  for (const table of tables) {
+    try {
+      const { error } = await supabaseClient.from(table).select('*', { count: 'exact', head: true });
+      console.log(`  ${table}: ${error ? '❌ ' + error.message : '✅ OK'}`);
+    } catch (e) {
+      console.log(`  ${table}: ❌ ${e.message}`);
+    }
+  }
+}
+async function handlePasswordUpdate(e) {
+  e.preventDefault();
+  console.log('🔄 Début mise à jour mot de passe...');
+  
+  const newPassword = document.getElementById('new-password').value;
+  const confirmPassword = document.getElementById('confirm-password').value;
+  const errorEl = document.getElementById('update-error');
+  const successEl = document.getElementById('update-success');
+  const submitBtn = document.getElementById('update-submit-btn');
+  
+  console.log('📝 Valeurs récupérées:', {
+    newPassword: newPassword ? 'Présent (' + newPassword.length + ' chars)' : 'Vide',
+    confirmPassword: confirmPassword ? 'Présent (' + confirmPassword.length + ' chars)' : 'Vide'
+  });
+  
+  // Masquer les messages précédents
+  if (errorEl) {
+    errorEl.style.display = 'none';
+    errorEl.textContent = '';
+  }
+  if (successEl) {
+    successEl.style.display = 'none';
+    successEl.textContent = '';
+  }
+  
+  // Validation des champs
+  if (!newPassword || !confirmPassword) {
+    console.log('❌ Champs vides détectés');
+    if (errorEl) {
+      errorEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Veuillez remplir tous les champs';
+      errorEl.style.display = 'block';
+    }
+    return;
+  }
+  
+  if (newPassword.length < 6) {
+    console.log('❌ Mot de passe trop court');
+    if (errorEl) {
+      errorEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Le mot de passe doit contenir au moins 6 caractères';
+      errorEl.style.display = 'block';
+    }
+    return;
+  }
+  
+  if (newPassword !== confirmPassword) {
+    console.log('❌ Mots de passe différents');
+    if (errorEl) {
+      errorEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Les mots de passe ne correspondent pas';
+      errorEl.style.display = 'block';
+    }
+    return;
+  }
+  
+  // Validation réussie
+  console.log('✅ Validation des champs réussie');
+  
+  // Désactiver le bouton et montrer le loading
+  if (submitBtn) {
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i>Mise à jour en cours...';
+    submitBtn.disabled = true;
+    console.log('🔄 Bouton désactivé, début traitement...');
+    
+    try {
+      if (supabaseClient) {
+        console.log('🔑 Utilisation de Supabase pour la mise à jour...');
+        
+        // ÉTAPE 1: Mettre à jour le mot de passe via Supabase Auth
+        const { data: updateData, error: updateError } = await supabaseClient.auth.updateUser({
+          password: newPassword
+        });
+        
+        if (updateError) {
+          console.error('❌ Erreur Supabase updateUser:', updateError);
+          throw updateError;
+        }
+        
+        console.log('✅ Mot de passe mis à jour dans Supabase Auth:', updateData);
+        
+        // ÉTAPE 2: Vérifier/récupérer les infos utilisateur
+        const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+        
+        if (userError) {
+          console.error('❌ Erreur récupération utilisateur:', userError);
+          throw userError;
+        }
+        
+        console.log('👤 Utilisateur récupéré:', user ? user.email : 'Aucun');
+        
+        // ÉTAPE 3: Mettre à jour dans la table admin_users si nécessaire
+        if (user && user.email) {
+          const { data: adminData, error: adminError } = await supabaseClient
+            .from('admin_users')
+            .select('id, email, role, last_login')
+            .eq('email', user.email)
+            .maybeSingle();
+          
+          if (!adminError && adminData) {
+            console.log('👑 Admin trouvé:', adminData);
+            
+            // Mettre à jour la dernière connexion
+            const { error: updateAdminError } = await supabaseClient
+              .from('admin_users')
+              .update({ 
+                last_login: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', adminData.id);
+              
+            if (updateAdminError) {
+              console.warn('⚠️ Erreur mise à jour admin_users:', updateAdminError);
+            } else {
+              console.log('✅ Données admin mises à jour');
+            }
+            
+            // Stocker les infos admin globalement
+            currentAdmin = { ...adminData };
+            showLogoutButton();
+          } else {
+            console.log('ℹ️ Utilisateur non admin ou erreur:', adminError);
+          }
+        }
+        
+        // ÉTAPE 4: Afficher le succès
+        if (successEl) {
+          successEl.innerHTML = '<i class="fas fa-check-circle"></i> Mot de passe mis à jour avec succès !';
+          successEl.style.display = 'block';
+        }
+        
+        showNotification('🔒 Mot de passe mis à jour avec succès !', 'success');
+        console.log('✅ Mise à jour terminée avec succès');
+        
+        // ÉTAPE 5: Redirection après 2 secondes
+        setTimeout(() => {
+          closeModal('password-update-modal');
+          if (currentAdmin) {
+            console.log('🏠 Redirection vers dashboard admin');
+            showAdminDashboard();
+          } else {
+            console.log('🔐 Redirection vers modal connexion');
+            showModal('admin-modal');
+          }
+        }, 2000);
+        
+      } else {
+        // Mode démo/test
+        console.log('🧪 Mode démo - simulation mise à jour...');
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        if (successEl) {
+          successEl.innerHTML = '<i class="fas fa-check-circle"></i> [MODE DEMO] Mot de passe simulé mis à jour';
+          successEl.style.display = 'block';
+        }
+        
+        showNotification('🔒 Mot de passe mis à jour (mode demo) !', 'success');
+        console.log('✅ Mode démo terminé');
+        
+        setTimeout(() => {
+          closeModal('password-update-modal');
+          showModal('admin-modal');
+        }, 2000);
+      }
+      
+    } catch (err) {
+      console.error('💥 Erreur lors de la mise à jour:', err);
+      
+      let errorMessage = 'Erreur lors de la mise à jour du mot de passe';
+      
+      // Messages d'erreur spécifiques
+      if (err.message) {
+        if (err.message.includes('session_not_found')) {
+          errorMessage = 'Session expirée. Veuillez recommencer la procédure de récupération.';
+        } else if (err.message.includes('invalid_grant')) {
+          errorMessage = 'Token de récupération invalide. Demandez un nouveau lien.';
+        } else if (err.message.includes('weak_password')) {
+          errorMessage = 'Le mot de passe n\'est pas assez sécurisé. Utilisez au moins 8 caractères avec des chiffres et des lettres.';
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      
+      if (errorEl) {
+        errorEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${errorMessage}`;
+        errorEl.style.display = 'block';
+      }
+      
+      showNotification('❌ ' + errorMessage, 'error');
+      
+    } finally {
+      // Restaurer le bouton
+      if (submitBtn) {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+        console.log('🔄 Bouton restauré');
+      }
+    }
+  }
+}
+function testPasswordUpdate() {
+  console.log('🧪 Test de mise à jour de mot de passe...');
+  
+  // Ouvrir le modal
+  testPasswordUpdateModal();
+  
+  // Pré-remplir les champs pour test
+  setTimeout(() => {
+    const newPasswordField = document.getElementById('new-password');
+    const confirmPasswordField = document.getElementById('confirm-password');
+    
+    if (newPasswordField && confirmPasswordField) {
+      newPasswordField.value = 'test123456';
+      confirmPasswordField.value = 'test123456';
+      console.log('✅ Champs pré-remplis pour test');
+      
+      // Vérifier la correspondance
+      checkPasswordMatch();
+    }
+  }, 1000);
+}
+function checkPasswordMatch() {
+  const newPassword = document.getElementById('new-password');
+  const confirmPassword = document.getElementById('confirm-password');
+  const indicator = document.getElementById('password-match-indicator');
+  
+  if (!newPassword || !confirmPassword || !indicator) return;
+  
+  const newVal = newPassword.value;
+  const confirmVal = confirmPassword.value;
+  
+  if (confirmVal.length === 0) {
+    indicator.style.display = 'none';
+    confirmPassword.style.borderColor = '#A67C52';
+    return;
+  }
+  
+  indicator.style.display = 'block';
+  
+  if (newVal === confirmVal) {
+    indicator.innerHTML = '<i class="fas fa-check-circle" style="color: #10b981; margin-right: 6px;"></i><span style="color: #10b981;">✅ Les mots de passe correspondent parfaitement</span>';
+    confirmPassword.style.borderColor = '#10b981';
+    confirmPassword.style.boxShadow = '0 0 10px rgba(16, 185, 129, 0.3)';
+  } else {
+    indicator.innerHTML = '<i class="fas fa-times-circle" style="color: #ef4444; margin-right: 6px;"></i><span style="color: #ef4444;">❌ Les mots de passe ne correspondent pas</span>';
+    confirmPassword.style.borderColor = '#ef4444';
+    confirmPassword.style.boxShadow = '0 0 10px rgba(239, 68, 68, 0.3)';
+  }
+}
+function testPasswordUpdateModal() {
+  console.log('🧪 Test modal mise à jour du mot de passe...');
+  
+  // Fermer tous les modales ouverts
+  const openModals = document.querySelectorAll('.modal');
+  openModals.forEach(modal => {
+    if (modal.style.display === 'block') {
+      modal.style.display = 'none';
+    }
+  });
+  
+  // S'assurer que les modales existent
+  if (!document.getElementById('password-update-modal')) {
+    createPasswordResetModals();
+    setupPasswordResetListeners();
+  }
+  
+  // Ouvrir le modal de mise à jour
+  setTimeout(() => {
+    showModal('password-update-modal');
+    console.log('✅ Modal de mise à jour forcé ouvert');
+    
+    // Focus sur le premier champ
+    setTimeout(() => {
+      const newPasswordField = document.getElementById('new-password');
+      if (newPasswordField) {
+        newPasswordField.focus();
+        console.log('🎯 Focus placé sur le champ nouveau mot de passe');
+        
+        // Vérifier que les champs sont bien là
+        console.log('📋 Champs détectés:', {
+          'new-password': !!document.getElementById('new-password'),
+          'confirm-password': !!document.getElementById('confirm-password'),
+          'update-submit-btn': !!document.getElementById('update-submit-btn')
+        });
+      } else {
+        console.error('❌ Champ new-password introuvable !');
+      }
+    }, 300);
+  }, 200);
+}
+function fillTestPassword() {
+  console.log('🔧 Pré-remplissage des champs pour test...');
+  
+  const newPasswordField = document.getElementById('new-password');
+  const confirmPasswordField = document.getElementById('confirm-password');
+  
+  if (newPasswordField && confirmPasswordField) {
+    newPasswordField.value = 'monNouveauMdp123';
+    confirmPasswordField.value = 'monNouveauMdp123';
+    
+    // Déclencher la vérification de correspondance
+    checkPasswordMatch();
+    
+    console.log('✅ Champs pré-remplis avec "monNouveauMdp123"');
+    
+    // Changer le style pour montrer que c'est pré-rempli
+    newPasswordField.style.background = '#e8f5e8';
+    confirmPasswordField.style.background = '#e8f5e8';
+    
+  } else {
+    console.error('❌ Impossible de trouver les champs !');
+    console.log('🔍 Champs disponibles:', {
+      'new-password': !!document.getElementById('new-password'),
+      'confirm-password': !!document.getElementById('confirm-password')
+    });
+  }
+}
+function simulateValidResetLink() {
+  console.log('🎭 Simulation d\'un lien de récupération valide...');
+  
+  // Construire une URL avec des tokens de test
+  const testUrl = window.location.origin + window.location.pathname + 
+    '?type=recovery&access_token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.test123&refresh_token=refresh_test_token_456';
+  
+  console.log('🔗 URL de test:', testUrl);
+  
+  // Modifier temporairement l'URL
+  window.history.pushState({}, '', testUrl);
+  
+  // Relancer la vérification
+  const hasToken = checkForPasswordResetToken();
+  console.log('🎯 Résultat simulation:', hasToken ? 'Token valide détecté' : 'Échec simulation');
+  
+  // Restaurer l'URL après 5 secondes
+  setTimeout(() => {
+    window.history.pushState({}, '', window.location.origin + window.location.pathname);
+    console.log('🔄 URL restaurée');
+  }, 5000);
+}
+function debugModals() {
+  console.log('🔍 DEBUG COMPLET DES MODALES:');
+  
+  // Vérifier existence des modales
+  const resetModal = document.getElementById('password-reset-modal');
+  const updateModal = document.getElementById('password-update-modal');
+  
+  console.log('📋 Modales existantes:', {
+    'password-reset-modal': !!resetModal,
+    'password-update-modal': !!updateModal
+  });
+  
+  if (updateModal) {
+    console.log('🔍 Contenu modal mise à jour:');
+    
+    // Lister tous les éléments dans le modal
+    const elements = {
+      'new-password': updateModal.querySelector('#new-password'),
+      'confirm-password': updateModal.querySelector('#confirm-password'),
+      'update-submit-btn': updateModal.querySelector('#update-submit-btn'),
+      'update-error': updateModal.querySelector('#update-error'),
+      'update-success': updateModal.querySelector('#update-success')
+    };
+    
+    Object.keys(elements).forEach(key => {
+      const element = elements[key];
+      console.log(`  - ${key}:`, !!element, element ? element.tagName : 'N/A');
+    });
+    
+    // Vérifier le style de visibilité
+    console.log('👁️ Visibilité modal:', {
+      display: updateModal.style.display,
+      visibility: updateModal.style.visibility,
+      opacity: updateModal.style.opacity
+    });
+  }
+}
+function quickTestPasswordUpdate() {
+  console.log('🚀 TEST RAPIDE - Modal + Pré-remplissage...');
+  
+  // Étape 1: Ouvrir le modal
+  testPasswordUpdateModal();
+  
+  // Étape 2: Pré-remplir après un délai
+  setTimeout(() => {
+    fillTestPassword();
+  }, 1000);
+  
+  console.log('✅ Test rapide lancé - Modal ouvert et champs pré-remplis dans 1 seconde');
+}
+function testPasswordSubmission() {
+  console.log('📝 Test de soumission du formulaire...');
+  
+  const form = document.getElementById('password-update-form');
+  if (form) {
+    // Simuler la soumission
+    const event = new Event('submit', { bubbles: true, cancelable: true });
+    form.dispatchEvent(event);
+    console.log('✅ Événement submit déclenché');
+  } else {
+    console.error('❌ Formulaire password-update-form introuvable');
+  }
+}
+// ========== UTILITAIRES ==========
+function isValidEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+function checkForPasswordResetToken() {
+  console.log('🔍 Vérification des tokens dans l\'URL...');
+  
+  const urlParams = new URLSearchParams(window.location.search);
+  const hash = window.location.hash;
+  
+  console.log('📍 URL complète:', window.location.href);
+  console.log('📋 Paramètres URL:', Object.fromEntries(urlParams));
+  console.log('🏷️ Hash:', hash);
+  
+  // Vérifier les paramètres dans l'URL principale
+  const accessToken = urlParams.get('access_token');
+  const refreshToken = urlParams.get('refresh_token');
+  const type = urlParams.get('type');
+  
+  // Vérifier aussi dans le hash (Supabase met souvent les tokens là)
+  let hashAccessToken = null;
+  let hashRefreshToken = null;
+  let hashType = null;
+  let hashError = null;
+  let hashErrorCode = null;
+  let hashErrorDescription = null;
+  
+  if (hash && hash.length > 1) {
+    const hashParams = new URLSearchParams(hash.substring(1)); // Enlever le #
+    hashAccessToken = hashParams.get('access_token');
+    hashRefreshToken = hashParams.get('refresh_token');
+    hashType = hashParams.get('type');
+    hashError = hashParams.get('error');
+    hashErrorCode = hashParams.get('error_code');
+    hashErrorDescription = hashParams.get('error_description');
+    
+    console.log('🏷️ Paramètres du hash:', {
+      access_token: hashAccessToken ? 'Présent' : 'Absent',
+      refresh_token: hashRefreshToken ? 'Présent' : 'Absent',
+      type: hashType,
+      error: hashError,
+      error_code: hashErrorCode,
+      error_description: hashErrorDescription
+    });
+  }
+  
+  // Utiliser les tokens soit de l'URL soit du hash
+  const finalAccessToken = accessToken || hashAccessToken;
+  const finalRefreshToken = refreshToken || hashRefreshToken;
+  const finalType = type || hashType;
+  const finalError = hashError;
+  const finalErrorCode = hashErrorCode;
+  const finalErrorDescription = hashErrorDescription;
+  
+  console.log('✅ Tokens détectés:', {
+    access_token: finalAccessToken ? 'Présent (' + finalAccessToken.substring(0, 20) + '...)' : 'Absent',
+    refresh_token: finalRefreshToken ? 'Présent' : 'Absent',
+    type: finalType,
+    error: finalError,
+    error_code: finalErrorCode
+  });
+  
+  // CAS SPÉCIAL: Si type=recovery mais pas de token ni d'erreur explicite
+  // C'est probablement un lien Supabase malformé ou incomplet
+  if (finalType === 'recovery' && !finalAccessToken && !finalError) {
+    console.log('⚠️ Lien de récupération détecté mais INCOMPLET !');
+    console.log('🔍 Analyse du problème:');
+    console.log('  - Type: recovery ✅');
+    console.log('  - Access token: ❌ MANQUANT');
+    console.log('  - Erreur: ❌ AUCUNE');
+    console.log('  - Hash vide: ❌ SUSPECT');
+    
+    // Attendre que les modales soient créées puis forcer l'ouverture du modal de mise à jour
+    setTimeout(() => {
+      console.log('🔧 SOLUTION: Forcer l\'ouverture du modal de mise à jour...');
+      
+      // Essayer de récupérer la session active de Supabase
+      if (supabaseClient) {
+        supabaseClient.auth.getSession().then(({ data: { session }, error }) => {
+          if (session && session.user) {
+            console.log('✅ Session Supabase trouvée:', session.user.email);
+            
+            // Il y a une session active, on peut ouvrir le modal de mise à jour
+            showModal('password-update-modal');
+            console.log('✅ Modal de mise à jour ouvert avec session existante');
+            
+            return true;
+          } else {
+            console.log('❌ Aucune session Supabase active');
+            
+            // Pas de session, demander un nouveau lien
+            showPasswordResetError('Le lien de récupération semble incomplet. Veuillez demander un nouveau lien.');
+            return false;
+          }
+        }).catch(err => {
+          console.error('❌ Erreur vérification session:', err);
+          showPasswordResetError('Problème avec le lien de récupération. Veuillez demander un nouveau lien.');
+          return false;
+        });
+      } else {
+        // Pas de Supabase, forcer l'ouverture en mode demo
+        console.log('🧪 Mode demo - Ouverture forcée du modal');
+        showModal('password-update-modal');
+        return true;
+      }
+    }, 500);
+    
+    // Nettoyer l'URL
+    const cleanUrl = window.location.origin + window.location.pathname;
+    console.log('🧹 Nettoyage URL vers:', cleanUrl);
+    window.history.replaceState({}, document.title, cleanUrl);
+    
+    return true; // On considère qu'on a géré le cas
+  }
+  
+  // Vérifier s'il y a une erreur dans la récupération
+  if (finalType === 'recovery' && finalError) {
+    console.log('❌ Erreur de récupération détectée:', finalError);
+    
+    let errorMessage = 'Erreur lors de la récupération du mot de passe.';
+    
+    switch (finalErrorCode) {
+      case 'otp_expired':
+        errorMessage = 'Le lien de récupération a expiré. Veuillez demander un nouveau lien.';
+        break;
+      case 'access_denied':
+        errorMessage = 'Accès refusé. Le lien de récupération est invalide.';
+        break;
+      default:
+        if (finalErrorDescription) {
+          errorMessage = decodeURIComponent(finalErrorDescription.replace(/\+/g, ' '));
+        }
+    }
+    
+    // Attendre que les modales soient créées puis afficher l'erreur
+    setTimeout(() => {
+      showPasswordResetError(errorMessage);
+    }, 500);
+    
+    // Nettoyer l'URL
+    const cleanUrl = window.location.origin + window.location.pathname;
+    console.log('🧹 Nettoyage URL vers:', cleanUrl);
+    window.history.replaceState({}, document.title, cleanUrl);
+    
+    return false; // Erreur détectée
+  }
+  
+  // Vérifier si c'est une récupération de mot de passe réussie
+  if (finalType === 'recovery' && finalAccessToken) {
+    console.log('🔑 Token de récupération détecté ! Ouverture du modal...');
+    
+    // Attendre que les modales soient créées
+    setTimeout(() => {
+      showModal('password-update-modal');
+      console.log('✅ Modal de mise à jour du mot de passe ouverte');
+    }, 500);
+    
+    if(supabaseClient && finalRefreshToken) {
+      console.log('🔄 Configuration de la session Supabase...');
+      try {
+        // Définir la session avec les tokens
+        supabaseClient.auth.setSession({
+          access_token: finalAccessToken,
+          refresh_token: finalRefreshToken
+        }).then(({ data, error }) => {
+          if (error) {
+            console.error('❌ Erreur configuration session:', error);
+          } else {
+            console.log('✅ Session configurée:', data.session ? 'OK' : 'VIDE');
+          }
+        });
+      } catch (sessionError) {
+        console.error('❌ Erreur session:', sessionError);
+      }
+    }
+    
+    // Nettoyer l'URL
+    const cleanUrl = window.location.origin + window.location.pathname;
+    console.log('🧹 Nettoyage URL vers:', cleanUrl);
+    window.history.replaceState({}, document.title, cleanUrl);
+    
+    return true; // Token trouvé
+  } else {
+    console.log('ℹ️ Aucun token de récupération trouvé');
+    return false;
+  }
+}
+function showPasswordResetError(message) {
+  console.log('⚠️ Affichage erreur reset:', message);
+  
+  // S'assurer que les modales existent
+  if (!document.getElementById('password-reset-modal')) {
+    console.log('🔧 Création des modales...');
+    createPasswordResetModals();
+    setupPasswordResetListeners();
+  }
+  
+  // Ouvrir le modal de reset
+  setTimeout(() => {
+    showModal('password-reset-modal');
+    
+    // Afficher l'erreur
+    const errorDiv = document.getElementById('password-reset-error');
+    if (errorDiv) {
+      errorDiv.textContent = message;
+      errorDiv.style.display = 'block';
+      errorDiv.style.color = '#e74c3c';
+      errorDiv.style.marginTop = '10px';
+      errorDiv.style.padding = '10px';
+      errorDiv.style.backgroundColor = '#ffeaea';
+      errorDiv.style.border = '1px solid #e74c3c';
+      errorDiv.style.borderRadius = '5px';
+    }
+  }, 100);
+}
+function debugSupabaseLink() {
+  console.log('🔍 ANALYSE COMPLÈTE DU LIEN SUPABASE:');
+  console.log('=====================================');
+  
+  const url = new URL(window.location.href);
+  console.log('🌐 URL complète:', url.href);
+  console.log('📁 Pathname:', url.pathname);
+  console.log('🔗 Search:', url.search);
+  console.log('🏷️ Hash:', url.hash);
+  
+  // Analyser les paramètres URL
+  console.log('\n📋 PARAMÈTRES URL:');
+  url.searchParams.forEach((value, key) => {
+    console.log(`  ${key}: ${value}`);
+  });
+  
+  // Analyser le hash
+  if (url.hash) {
+    console.log('\n🏷️ PARAMÈTRES HASH:');
+    const hashParams = new URLSearchParams(url.hash.substring(1));
+    hashParams.forEach((value, key) => {
+      console.log(`  ${key}: ${value}`);
+    });
+  }
+  
+  // Vérifier la session Supabase
+  if (supabaseClient) {
+    console.log('\n🔑 SESSION SUPABASE:');
+    supabaseClient.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.log('❌ Erreur session:', error);
+      } else if (session) {
+        console.log('✅ Session active:', {
+          user: session.user.email,
+          expires_at: new Date(session.expires_at * 1000).toLocaleString(),
+          token_type: session.token_type
+        });
+      } else {
+        console.log('❌ Aucune session active');
+      }
+    });
+  }
+}
+function testTokenScenarios() {
+  console.log('🧪 Test des différents scénarios...');
+  
+  // Scénario 1 : Token expiré
+  console.log('📋 Test 1 : Token expiré');
+  const expiredUrl = window.location.origin + window.location.pathname + 
+    '?type=recovery#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired';
+  
+  window.history.pushState({}, '', expiredUrl);
+  checkForPasswordResetToken();
+  
+  setTimeout(() => {
+    // Scénario 2 : Token valide
+    console.log('📋 Test 2 : Token valide');
+    const validUrl = window.location.origin + window.location.pathname + 
+      '?type=recovery&access_token=valid123&refresh_token=refresh456';
+    
+    window.history.pushState({}, '', validUrl);
+    checkForPasswordResetToken();
+    
+    setTimeout(() => {
+      // Restaurer l'URL originale
+      window.history.pushState({}, '', window.location.origin + window.location.pathname);
+    }, 2000);
+  }, 3000);
+}
+function testTokenDetection() {
+  // Simuler une URL avec tokens
+  const testUrl = window.location.origin + window.location.pathname + '?type=recovery&access_token=test123&refresh_token=refresh456';
+  
+  console.log('🧪 Test avec URL simulée:', testUrl);
+  
+  // Modifier temporairement l'URL pour le test
+  window.history.pushState({}, '', testUrl);
+  
+  // Tester la détection
+  const detected = checkForPasswordResetToken();
+  
+  console.log('📋 Résultat test:', detected ? 'Token détecté' : 'Aucun token');
+  
+  // Restaurer l'URL originale
+  setTimeout(() => {
+    window.history.back();
+  }, 2000);
+}
+function forceOpenPasswordUpdate() {
+  console.log('🔓 Force l\'ouverture du modal de mise à jour...');
+  
+  // S'assurer que les modales existent
+  if (!document.getElementById('password-update-modal')) {
+    console.log('🔧 Création des modales...');
+    createPasswordResetModals();
+    setupPasswordResetListeners();
+  }
+  
+  // Ouvrir le modal
+  setTimeout(() => {
+    showModal('password-update-modal');
+    console.log('✅ Modal forcé ouvert');
+  }, 100);
+}
+// ========== SETUP ==========
+function setupPasswordResetListeners() {
+  const passwordResetForm = document.getElementById('password-reset-form');
+  const passwordUpdateForm = document.getElementById('password-update-form');
+  
+  if(passwordResetForm) {
+    passwordResetForm.addEventListener('submit', handlePasswordReset);
+  }
+  
+  if(passwordUpdateForm) {
+    passwordUpdateForm.addEventListener('submit', handlePasswordUpdate);
+  }
+}
+
+function initPasswordReset() {
+  // Créer les modales
+   createPasswordResetModals();
+  console.log('✅ Modales créées');
+  
+  addForgotPasswordLink();
+  console.log('✅ Lien "Mot de passe oublié" ajouté');
+  
+  // Vérifier si l'utilisateur arrive avec un token de reset
+  checkForPasswordResetToken();
+    const hasToken = checkForPasswordResetToken();
+  console.log(hasToken ? '🔑 Token trouvé' : 'ℹ️ Pas de token');
+  
+  // Configurer les listeners
+  setupPasswordResetListeners();
+  console.log('✅ Event listeners configurés');
+  
+
+ 
+}
+function debugUrl() {
+  console.log('🔍 DEBUG URL:');
+  console.log('  - href:', window.location.href);
+  console.log('  - search:', window.location.search);
+  console.log('  - hash:', window.location.hash);
+  console.log('  - pathname:', window.location.pathname);
+  
+  const params = new URLSearchParams(window.location.search);
+  console.log('  - params:', Object.fromEntries(params));
+  
+  if (window.location.hash) {
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    console.log('  - hash params:', Object.fromEntries(hashParams));
+  }
+}
+
+// ========== REQUÊTES SUPABASE SUPPLÉMENTAIRES ==========
+
+// Fonction pour vérifier le statut de récupération
+async function checkRecoveryStatus() {
+  if (!supabaseClient) return;
+  
+  try {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session) {
+      // L'utilisateur est connecté via recovery
+      const { data: adminData, error } = await supabaseClient
+        .from('admin_users')
+        .select('id,email,role')
+        .eq('email', session.user.email)
+        .maybeSingle();
+      
+      if (!error && adminData) {
+        currentAdmin = { ...adminData };
+        showLogoutButton();
+        return true;
+      }
+    }
+    return false;
+  } catch (error) {
+    console.error('Erreur vérification recovery:', error);
+    return false;
+  }
+}
+
+// Fonction pour vérifier si l'email existe dans admin_users (optionnel)
+async function checkAdminEmailExists(email) {
+  if (!supabaseClient) return true; // En mode demo, accepter tout
+  
+  try {
+    const { data, error } = await supabaseClient
+      .from('admin_users')
+      .select('email')
+      .eq('email', email)
+      .maybeSingle();
+    
+    if (error) throw error;
+    return !!data; // Retourne true si l'email existe
+  } catch (error) {
+    console.error('Erreur vérification email admin:', error);
+    return false;
+  }
+}
+
 
 /* ========== UTILITAIRES ========== */
 function formatPrice(n){ return (Number(n)||0).toFixed(2); }
@@ -2610,6 +4074,8 @@ async function init(){
     setupEventListeners();
     loadCartFromStorage();
     updateCartCount();
+    setupPasswordResetListeners();
+    initPasswordReset();
     
     // CORRECTION: Corriger les placeholders après le chargement
     setTimeout(fixPlaceholderUrls, 100);
